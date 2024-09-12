@@ -10,7 +10,7 @@ from math import ceil
 import requests
 from dotenv import load_dotenv
 from github import Github, GithubException, RateLimitExceededException
-from requests.exceptions import RequestException, Timeout
+from requests.exceptions import Timeout
 from tqdm import tqdm
 from urllib3 import Retry
 
@@ -93,33 +93,41 @@ class LinkwardenManager:
 
     def get_existing_links(self, collection_id):
         page = 1
+        seen_links = set()
         while True:
-            for attempt in range(MAX_RETRIES):
-                try:
-                    response = requests.get(
-                        f"{self.linkwarden_url}/links",
-                        params={"collectionId": collection_id, "page": page},
-                        headers=self.headers,
+            try:
+                logger.debug(
+                    f"Fetching links from page {page} for collection {collection_id}"
+                )
+                response = requests.get(
+                    f"{self.linkwarden_url}/links",
+                    params={"collectionId": collection_id, "page": page},
+                    headers=self.headers,
+                    timeout=30,
+                )
+                response.raise_for_status()
+                data = response.json()
+                links = data.get("response", [])
+                logger.debug(f"Fetched {len(links)} links from page {page}")
+
+                new_links = [
+                    link["url"] for link in links if link["url"] not in seen_links
+                ]
+                if not new_links:
+                    logger.info(
+                        f"No new links found on page {page}. Stopping pagination."
                     )
-                    response.raise_for_status()
-                    data = response.json()
-                    links = data.get("response", [])
-                    if not links:
-                        return
-                    yield from (link["url"] for link in links)
-                    page += 1
                     break
-                except RequestException as e:
-                    logger.warning(
-                        f"Error fetching links from page {page} (attempt {attempt + 1}/{MAX_RETRIES}): {str(e)}"
-                    )
-                    if attempt == MAX_RETRIES - 1:
-                        logger.error(
-                            f"Max retries reached for page {page}. Moving to next page."
-                        )
-                        page += 1
-                        break
-                    time.sleep(RETRY_DELAY)
+
+                seen_links.update(new_links)
+                yield from new_links
+                page += 1
+            except requests.RequestException as e:
+                logger.error(f"Error fetching links from page {page}: {str(e)}")
+                if hasattr(e, "response") and e.response is not None:
+                    logger.error(f"Response status code: {e.response.status_code}")
+                    logger.error(f"Response content: {e.response.text}")
+                break
 
     def get_collections(self):
         try:
