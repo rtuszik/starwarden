@@ -11,10 +11,15 @@ import requests
 from dotenv import load_dotenv
 from github import Github, GithubException, RateLimitExceededException
 from requests.exceptions import Timeout
-from tqdm import tqdm
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import Progress
+from rich.prompt import Prompt
 from urllib3 import Retry
 
 logger = logging.getLogger(__name__)
+
+console = Console()
 
 MAX_RETRIES = 3
 RETRY_DELAY = 5
@@ -260,106 +265,131 @@ class StarwardenApp:
         if self.args.debug:
             logger.setLevel(logging.DEBUG)
 
+    def display_welcome(self):
+        welcome_text = """
+        ╔═══════════════════════════════════════╗
+        ║             StarWarden                ║
+        ║  GitHub Stars to Linkwarden Exporter  ║
+        ╚═══════════════════════════════════════╝
+        """
+        console.print(Panel(welcome_text, expand=False, border_style="bold blue"))
+
     def main_menu(self):
-        print("Choose an option:")
-        print("1. Update existing GitHub Stars collection")
-        print("2. Create a new GitHub Stars collection")
-        choice = input("Enter your choice (1 or 2): ")
-        if choice in ["1", "2"]:
-            return int(choice)
-        print("Invalid choice. Please enter 1 or 2.")
-        return self.main_menu()
+        options = [
+            "Update existing GitHub Stars collection",
+            "Create a new GitHub Stars collection",
+            "Exit",
+        ]
+        console.print("[bold cyan]Choose an option:[/bold cyan]")
+        for i, option in enumerate(options, 1):
+            console.print(f"  {i}. {option}")
+
+        choice = Prompt.ask(
+            "Enter your choice", choices=[str(i) for i in range(1, len(options) + 1)]
+        )
+        return int(choice)
 
     def select_or_create_collection(self):
         collections = self.linkwarden_manager.get_collections()
-        if collections is None:
-            logger.error(
-                "Failed to fetch collections. Please check your Linkwarden connection."
+        if collections is None or not collections:
+            console.print(
+                "[bold red]No collections found or failed to fetch collections.[/bold red]"
             )
             return None
 
-        if not collections:
-            logger.info("No collections found.")
-            return None
-
-        print("Available collections:")
+        logger.info("Fetching existing collections...")
+        console.print("[bold cyan]Available collections:[/bold cyan]")
         for i, collection in enumerate(collections, 1):
-            if isinstance(collection, dict):
-                print(
-                    f"{i}. {collection.get('name', 'Unnamed')} (ID: {collection.get('id', 'Unknown')}) - {collection.get('description', 'No description')}"
-                )
-            elif isinstance(collection, str):
-                print(f"{i}. {collection}")
-            else:
-                print(f"{i}. Unknown collection type")
+            console.print(
+                f"  {i}. [green]{collection.get('name', 'Unnamed')}[/green] (ID: {collection.get('id', 'Unknown')}) - {collection.get('description', 'No description')}"
+            )
 
-        while True:
-            try:
-                choice = input(
-                    f"Enter the number of your choice (1-{len(collections)}): "
-                )
-                if choice.isdigit() and 1 <= int(choice) <= len(collections):
-                    selected = collections[int(choice) - 1]
-                    if isinstance(selected, dict):
-                        return selected.get("id")
-                    else:
-                        logger.error(
-                            f"Selected collection is not in the expected format. Selected: {selected}"
-                        )
-                        return None
-                else:
-                    print(
-                        f"Invalid choice. Please enter a number between 1 and {len(collections)}."
-                    )
-            except Exception as e:
-                logger.error(f"Unexpected error: {str(e)}")
-                sys.exit(1)
+        choice = Prompt.ask(
+            "Enter the number of your choice",
+            choices=[str(i) for i in range(1, len(collections) + 1)],
+        )
+        selected = collections[int(choice) - 1]
+        logger.info(
+            f"Selected collection: {selected.get('name')} (ID: {selected.get('id')})"
+        )
+        return selected.get("id")
 
     def run(self):
+        self.display_welcome()
         flavor = self.main_menu()
         if flavor == 1:
-            print("Fetching existing collections...")
+            console.print("[bold cyan]Fetching existing collections...[/bold cyan]")
             collection_id = self.select_or_create_collection()
             if not collection_id:
                 logger.error("Failed to select a collection. Exiting.")
-                sys.exit(1)
-            print(f"Selected collection ID: {collection_id}")
+                console.print(
+                    "[bold red]Failed to select a collection. Exiting.[/bold red]"
+                )
+                return
 
-            print("Fetching existing links in the collection...")
+            console.print(f"[green]Selected collection ID: {collection_id}[/green]")
+
+            console.print(
+                "[bold cyan]Fetching existing links in the collection...[/bold cyan]"
+            )
             existing_links = set(
                 self.linkwarden_manager.get_existing_links(collection_id)
             )
-            print(f"Found {len(existing_links)} existing links in the collection.")
-        else:
-            collection_name = input(
-                "Enter the name for the new GitHub Stars collection: "
+            logger.info(
+                f"Found {len(existing_links)} existing links in the collection."
             )
-            print(f"Creating new collection: {collection_name}")
+            console.print(
+                f"[green]Found {len(existing_links)} existing links in the collection.[/green]"
+            )
+        elif flavor == 2:
+            collection_name = Prompt.ask(
+                "Enter the name for the new GitHub Stars collection"
+            )
+            logger.info(f"Creating new collection: {collection_name}")
+            console.print(
+                f"[bold cyan]Creating new collection: {collection_name}[/bold cyan]"
+            )
             collection = self.linkwarden_manager.create_collection(collection_name)
             if not collection:
                 logger.error("Failed to create a new collection. Exiting.")
-                sys.exit(1)
+                console.print(
+                    "[bold red]Failed to create a new collection. Exiting.[/bold red]"
+                )
+                return
             collection_id = collection.get("id")
-            logger.debug(f"Created new collection with ID: {collection_id}")
-            print(f"Created new collection with ID: {collection_id}")
+            logger.info(f"Created new collection with ID: {collection_id}")
+            console.print(
+                f"[green]Created new collection with ID: {collection_id}[/green]"
+            )
             existing_links = set()
+        else:
+            logger.info("Exiting StarWarden.")
+            console.print("[bold red]Exiting StarWarden. Goodbye![/bold red]")
+            return
 
-        print("Fetching starred repositories from GitHub...")
+        logger.info("Fetching starred repositories from GitHub...")
+        console.print(
+            "[bold cyan]Fetching starred repositories from GitHub...[/bold cyan]"
+        )
         total_repos = self.github_manager.user.get_starred().totalCount
-        print(f"Total starred repositories: {total_repos}")
+        logger.info(f"Total starred repositories: {total_repos}")
+        console.print(f"[green]Total starred repositories: {total_repos}[/green]")
 
         successful_uploads = 0
         failed_uploads = 0
         skipped_uploads = 0
 
-        with tqdm(total=total_repos, desc="Processing starred repos") as pbar:
+        with Progress() as progress:
+            task = progress.add_task(
+                "[cyan]Processing starred repos...", total=total_repos
+            )
             for repo in self.github_manager.starred_repos():
                 if repo.html_url in existing_links:
                     logger.info(
                         f"Skipping {repo.full_name} as it already exists in the collection"
                     )
                     skipped_uploads += 1
-                    pbar.update(1)
+                    progress.update(task, advance=1)
                     continue
 
                 max_retries = 3
@@ -403,16 +433,19 @@ class StarwardenApp:
                     )
                     failed_uploads += 1
 
-                pbar.update(1)
+                progress.update(task, advance=1)
 
-        print("\nFinished processing all starred repositories.")
-        print(f"Successful uploads: {successful_uploads}")
-        print(f"Failed uploads: {failed_uploads}")
-        print(f"Skipped uploads: {skipped_uploads}")
         logger.info("Finished processing all starred repositories.")
         logger.info(f"Successful uploads: {successful_uploads}")
         logger.info(f"Failed uploads: {failed_uploads}")
         logger.info(f"Skipped uploads: {skipped_uploads}")
+
+        console.print(
+            "\n[bold green]Finished processing all starred repositories.[/bold green]"
+        )
+        console.print(f"[green]Successful uploads: {successful_uploads}[/green]")
+        console.print(f"[yellow]Failed uploads: {failed_uploads}[/yellow]")
+        console.print(f"[cyan]Skipped uploads: {skipped_uploads}[/cyan]")
 
 
 class StarwardenError(Exception):
@@ -428,7 +461,9 @@ if __name__ == "__main__":
         app.run()
     except StarwardenError as e:
         logger.error(f"Starwarden error: {str(e)}")
+        console.print(f"[bold red]Starwarden error: {str(e)}[/bold red]")
         sys.exit(1)
     except Exception as e:
         logger.exception(f"Unexpected error: {str(e)}")
+        console.print(f"[bold red]Unexpected error: {str(e)}[/bold red]")
         sys.exit(1)
