@@ -1,27 +1,56 @@
-# GitHub Stars to Linkwarden Sync Tool
+# StarWarden
 
-**⚠️ WARNING: This tool is still in development and has not been thoroughly tested. Use at your own risk. ⚠️**
-
-A Python script to export your GitHub starred repositories and import them as individual links into a Linkwarden collection.
-
-## Quick Start
-
-1. Clone the repository
-2. Install dependencies: `pip install -r requirements.txt`
-3. Create a `.env` file with your GitHub and Linkwarden credentials
-4. Run: `python sync_stars_to_linkwarden.py [--dry-run] [--debug]`
+StarWarden exports GitHub starred repositories to Linkwarden as individual links.
 
 ## Features
 
-- Fetch GitHub stars
-- Interactive Linkwarden collection selection
-- Dry run mode
-- Detailed logging
+- Export GitHub stars to Linkwarden
+- Create new or update existing Linkwarden collections
+- Handle API rate limiting
+- Command-line interface
 
-## Contributing
+## Requirements
 
-This project is in early development. Contributions and feedback are welcome!
+- Python 3.6+
+- GitHub account
+- Linkwarden account and API token
+- Python packages listed in `requirements.txt`
 
-## License
+## Setup
 
-[MIT License](LICENSE)
+1. Clone the repository
+2. Install requirements:
+   ```
+   pip install -r requirements.txt
+   ```
+3. Create a `.env` file with:
+   ```
+   GITHUB_TOKEN=your_github_token
+   GITHUB_USERNAME=your_github_username
+   LINKWARDEN_URL=your_linkwarden_instance_url
+   LINKWARDEN_TOKEN=your_linkwarden_api_token
+   ```
+
+## Usage
+
+Run:
+```
+python starwarden.py
+```
+
+For debug logging:
+```
+python starwarden.py --debug
+```
+
+Follow the prompts to update or create a collection.
+
+## Configuration
+
+Set these environment variables:
+
+- `GITHUB_TOKEN`
+- `GITHUB_USERNAME`
+- `LINKWARDEN_URL`
+- `LINKWARDEN_TOKEN`
+
