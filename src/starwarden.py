@@ -4,11 +4,14 @@ import os
 import sys
 import time
 from argparse import ArgumentParser
+from logging.handlers import RotatingFileHandler
 from math import ceil
 
 import requests
 from dotenv import load_dotenv
 from github import Github, GithubException, RateLimitExceededException
+from requests.exceptions import Timeout
+from tqdm import tqdm
 from urllib3 import Retry
 
 logger = logging.getLogger(__name__)
@@ -16,11 +19,17 @@ logger = logging.getLogger(__name__)
 
 def configure_logging(debug=False):
     log_level = logging.DEBUG if debug else logging.INFO
-    logging.basicConfig(
-        level=log_level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
+    log_formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
+
+    log_file = "starwarden.log"
+    file_handler = RotatingFileHandler(log_file, maxBytes=1024 * 1024, backupCount=5)
+    file_handler.setFormatter(log_formatter)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
+    root_logger.addHandler(file_handler)
 
 
 class GithubStarManager:
@@ -70,7 +79,10 @@ class GithubStarManager:
 
 class LinkwardenManager:
     def __init__(self, linkwarden_url, linkwarden_token):
-        self.linkwarden_url = linkwarden_url
+        if not linkwarden_url or not linkwarden_token:
+            raise ValueError("Linkwarden URL and token must be provided")
+        # Ensure the base URL ends with /api/v1
+        self.linkwarden_url = linkwarden_url.rstrip("/") + "/api/v1"
         self.linkwarden_token = linkwarden_token
         self.headers = {
             "Authorization": f"Bearer {linkwarden_token}",
@@ -78,26 +90,30 @@ class LinkwardenManager:
         }
 
     def get_existing_links(self, collection_id):
-        existing_links = set()
         page = 1
         while True:
-            response = requests.get(
-                f"{self.linkwarden_url}/api/v1/links?collectionId={collection_id}&page={page}",
-                headers=self.headers,
-            )
-            response.raise_for_status()
-            data = response.json()
-            links = data.get("response", [])
-            if not links:
+            try:
+                response = requests.get(
+                    f"{self.linkwarden_url}/links",
+                    params={"collectionId": collection_id, "page": page},
+                    headers=self.headers,
+                )
+                response.raise_for_status()
+                data = response.json()
+                links = data.get("response", [])
+                if not links:
+                    break
+                yield from (link["url"] for link in links)
+                page += 1
+            except requests.RequestException as e:
+                logger.error(f"Error fetching links from page {page}: {str(e)}")
                 break
-            existing_links.update(link["url"] for link in links)
-            page += 1
-        return existing_links
 
     def get_collections(self):
         try:
             response = requests.get(
-                f"{self.linkwarden_url}/api/v1/collections", headers=self.headers
+                f"{self.linkwarden_url}/collections",
+                headers=self.headers,
             )
             response.raise_for_status()
             data = response.json()
@@ -110,42 +126,82 @@ class LinkwardenManager:
             )
 
     def create_collection(self, name, description=""):
-        data = {"name": name}
+        data = {"name": name, "description": description}
         try:
+            logger.debug(f"Attempting to create collection: {name}")
             response = requests.post(
-                f"{self.linkwarden_url}/api/v1/collections",
+                f"{self.linkwarden_url}/collections",
                 headers=self.headers,
                 json=data,
+                timeout=30,  # Add a 30-second timeout
             )
+            logger.debug(f"Response status code: {response.status_code}")
+            logger.debug(f"Response content: {response.text}")
             response.raise_for_status()
-            return response.json()
+            created_collection = response.json().get("response", {})
+            logger.info(f"Created collection: {created_collection}")
+            return created_collection
+        except Timeout:
+            logger.error(
+                "Request timed out while creating new collection in Linkwarden"
+            )
+            return None
         except requests.RequestException as e:
             logger.error(f"Error creating new collection in Linkwarden: {str(e)}")
+            if hasattr(e, "response") and e.response is not None:
+                logger.error(f"Response status code: {e.response.status_code}")
+                logger.error(f"Response content: {e.response.text}")
             return None
 
-    def upload_link(self, collection_id, repo, dry_run=False):
+    def upload_link(self, collection_id, repo):
         link_data = {
             "url": repo.html_url,
             "title": repo.full_name,
             "description": repo.description or "",
-            "collectionId": collection_id,
+            "collection": {"id": collection_id},
             "tags": [{"name": "GitHub"}, {"name": "Starred"}],
         }
 
-        if dry_run:
-            logger.info(f"[DRY RUN] Would upload to Linkwarden: {link_data}")
-            return None
+        logger.debug(
+            f"Sending link data to Linkwarden: {json.dumps(link_data, indent=2)}"
+        )
 
         try:
             response = requests.post(
-                f"{self.linkwarden_url}/api/v1/links",
+                f"{self.linkwarden_url}/links",
                 headers=self.headers,
                 json=link_data,
             )
             response.raise_for_status()
-            return response.json()["id"]
+            response_json = response.json()
+
+            logger.debug(
+                f"API response for {repo.full_name}: {json.dumps(response_json, indent=2)}"
+            )
+
+            created_link = response_json.get("response", {})
+            if created_link and "id" in created_link:
+                returned_collection_id = created_link.get("collectionId")
+                if returned_collection_id != collection_id:
+                    logger.warning(
+                        f"Link created in collection {returned_collection_id} instead of requested collection {collection_id}"
+                    )
+                logger.info(
+                    f"Successfully created link for {repo.full_name}. Link ID: {created_link['id']}, Collection ID: {returned_collection_id}"
+                )
+                return created_link["id"]
+            else:
+                logger.error(
+                    f"Unexpected response format for {repo.full_name}. Response: {response_json}"
+                )
+                return None
+
         except requests.RequestException as e:
             logger.error(f"Error uploading {repo.full_name} to Linkwarden: {str(e)}")
+            if hasattr(e, "response") and e.response is not None:
+                logger.error(f"Response status code: {e.response.status_code}")
+                logger.error(f"Response content: {e.response.content}")
+
             return None
 
 
@@ -163,11 +219,6 @@ class StarwardenApp:
     def parse_args():
         parser = ArgumentParser(
             description="Export GitHub starred repositories as individual links to Linkwarden"
-        )
-        parser.add_argument(
-            "--dry-run",
-            action="store_true",
-            help="Perform a dry run without actually creating links",
         )
         parser.add_argument("--debug", action="store_true", help="Enable debug logging")
         return parser.parse_args()
@@ -193,11 +244,11 @@ class StarwardenApp:
         print("Choose an option:")
         print("1. Update existing GitHub Stars collection")
         print("2. Create a new GitHub Stars collection")
-        while True:
-            choice = input("Enter your choice (1 or 2): ")
-            if choice in ["1", "2"]:
-                return int(choice)
-            print("Invalid choice. Please enter 1 or 2.")
+        choice = input("Enter your choice (1 or 2): ")
+        if choice in ["1", "2"]:
+            return int(choice)
+        print("Invalid choice. Please enter 1 or 2.")
+        return self.main_menu()
 
     def select_or_create_collection(self):
         collections = self.linkwarden_manager.get_collections()
@@ -209,25 +260,26 @@ class StarwardenApp:
 
         if not collections:
             logger.info("No collections found.")
-        else:
-            print("Available collections:")
-            for i, collection in enumerate(collections, 1):
-                if isinstance(collection, dict):
-                    print(
-                        f"{i}. {collection.get('name', 'Unnamed')} (ID: {collection.get('id', 'Unknown')}) - {collection.get('description', 'No description')}"
-                    )
-                elif isinstance(collection, str):
-                    print(f"{i}. {collection}")
-                else:
-                    print(f"{i}. Unknown collection type")
+            return None
 
-        print(f"{len(collections) + 1}. Create a new collection")
+        print("Available collections:")
+        for i, collection in enumerate(collections, 1):
+            if isinstance(collection, dict):
+                print(
+                    f"{i}. {collection.get('name', 'Unnamed')} (ID: {collection.get('id', 'Unknown')}) - {collection.get('description', 'No description')}"
+                )
+            elif isinstance(collection, str):
+                print(f"{i}. {collection}")
+            else:
+                print(f"{i}. Unknown collection type")
 
         while True:
             try:
-                choice = int(input("Enter the number of your choice: "))
-                if 1 <= choice <= len(collections):
-                    selected = collections[choice - 1]
+                choice = input(
+                    f"Enter the number of your choice (1-{len(collections)}): "
+                )
+                if choice.isdigit() and 1 <= int(choice) <= len(collections):
+                    selected = collections[int(choice) - 1]
                     if isinstance(selected, dict):
                         return selected.get("id")
                     else:
@@ -235,26 +287,10 @@ class StarwardenApp:
                             f"Selected collection is not in the expected format. Selected: {selected}"
                         )
                         return None
-                elif choice == len(collections) + 1:
-                    name = input("Enter the name for the new collection: ")
-                    description = input(
-                        "Enter a description for the new collection (optional): "
-                    )
-                    if self.args.dry_run:
-                        logger.info(f"[DRY RUN] Would create new collection: {name}")
-                        return "dry_run_collection_id"
-                    new_collection = self.linkwarden_manager.create_collection(
-                        name, description
-                    )
-                    if new_collection:
-                        return new_collection.get("id")
-                    else:
-                        logger.error("Failed to create a new collection.")
-                        return None
                 else:
-                    print("Invalid choice. Please try again.")
-            except ValueError:
-                print("Invalid input. Please enter a number.")
+                    print(
+                        f"Invalid choice. Please enter a number between 1 and {len(collections)}."
+                    )
             except Exception as e:
                 logger.error(f"Unexpected error: {str(e)}")
                 sys.exit(1)
@@ -262,76 +298,97 @@ class StarwardenApp:
     def run(self):
         flavor = self.main_menu()
         if flavor == 1:
+            print("Fetching existing collections...")
             collection_id = self.select_or_create_collection()
             if not collection_id:
                 logger.error("Failed to select a collection. Exiting.")
                 sys.exit(1)
-            existing_links = self.linkwarden_manager.get_existing_links(collection_id)
+            print(f"Selected collection ID: {collection_id}")
+
+            print("Fetching existing links in the collection...")
+            existing_links = set(
+                self.linkwarden_manager.get_existing_links(collection_id)
+            )
+            print(f"Found {len(existing_links)} existing links in the collection.")
         else:
             collection_name = input(
                 "Enter the name for the new GitHub Stars collection: "
             )
+            print(f"Creating new collection: {collection_name}")
             collection = self.linkwarden_manager.create_collection(collection_name)
             if not collection:
                 logger.error("Failed to create a new collection. Exiting.")
                 sys.exit(1)
             collection_id = collection.get("id")
-            existing_links = set()
+            logger.debug(f"Created new collection with ID: {collection_id}")
+            print(f"Created new collection with ID: {collection_id}")
+            existing_links = set()  # Empty set for new collection
+
+        print("Fetching starred repositories from GitHub...")
+        total_repos = self.github_manager.user.get_starred().totalCount
+        print(f"Total starred repositories: {total_repos}")
 
         successful_uploads = 0
         failed_uploads = 0
         skipped_uploads = 0
 
-        for repo in self.github_manager.starred_repos():
-            if repo.html_url in existing_links:
-                logger.info(
-                    f"Skipping {repo.full_name} as it already exists in the collection"
-                )
-                skipped_uploads += 1
-                continue
-
-            max_retries = 3
-            retry_count = 0
-            while retry_count < max_retries:
-                try:
-                    logger.info(f"Processing repository: {repo.full_name}")
-                    link_id = self.linkwarden_manager.upload_link(
-                        collection_id, repo, self.args.dry_run
+        with tqdm(total=total_repos, desc="Processing starred repos") as pbar:
+            for repo in self.github_manager.starred_repos():
+                if repo.html_url in existing_links:
+                    logger.info(
+                        f"Skipping {repo.full_name} as it already exists in the collection"
                     )
+                    skipped_uploads += 1
+                    pbar.update(1)
+                    continue
 
-                    if link_id or self.args.dry_run:
-                        logger.info(
-                            f"Successfully processed {repo.full_name}"
-                            + (f". Link ID: {link_id}" if link_id else "")
+                max_retries = 3
+                retry_count = 0
+                while retry_count < max_retries:
+                    try:
+                        logger.info(f"Processing repository: {repo.full_name}")
+                        link_id = self.linkwarden_manager.upload_link(
+                            collection_id, repo
                         )
-                        successful_uploads += 1
-                    else:
-                        logger.warning(f"Failed to upload {repo.full_name}")
-                        failed_uploads += 1
-                    break
-                except requests.exceptions.RequestException as e:
-                    if e.response is not None and e.response.status_code == 429:
-                        retry_after = e.response.headers.get("Retry-After", 60)
-                        self.github_manager.handle_rate_limit(e, retry_after)
-                        retry_count += 1
-                    else:
+
+                        if link_id:
+                            logger.info(
+                                f"Successfully processed {repo.full_name}. Link ID: {link_id}"
+                            )
+                            successful_uploads += 1
+                        else:
+                            logger.warning(f"Failed to upload {repo.full_name}")
+                            failed_uploads += 1
+                        break
+                    except requests.exceptions.RequestException as e:
+                        if e.response is not None and e.response.status_code == 429:
+                            retry_after = e.response.headers.get("Retry-After", 60)
+                            self.github_manager.handle_rate_limit(e, retry_after)
+                            retry_count += 1
+                        else:
+                            logger.error(
+                                f"Error uploading {repo.full_name} to Linkwarden: {str(e)}"
+                            )
+                            failed_uploads += 1
+                            break
+                    except Exception as e:
                         logger.error(
-                            f"Error uploading {repo.full_name} to Linkwarden: {str(e)}"
+                            f"Unexpected error processing {repo.full_name}: {str(e)}"
                         )
                         failed_uploads += 1
                         break
-                except Exception as e:
+                else:
                     logger.error(
-                        f"Unexpected error processing {repo.full_name}: {str(e)}"
+                        f"Max retries reached for {repo.full_name}. Moving to next repository."
                     )
                     failed_uploads += 1
-                    break
-            else:
-                logger.error(
-                    f"Max retries reached for {repo.full_name}. Moving to next repository."
-                )
-                failed_uploads += 1
 
+                pbar.update(1)
+
+        print("\nFinished processing all starred repositories.")
+        print(f"Successful uploads: {successful_uploads}")
+        print(f"Failed uploads: {failed_uploads}")
+        print(f"Skipped uploads: {skipped_uploads}")
         logger.info("Finished processing all starred repositories.")
         logger.info(f"Successful uploads: {successful_uploads}")
         logger.info(f"Failed uploads: {failed_uploads}")
