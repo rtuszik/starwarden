@@ -10,11 +10,14 @@ from math import ceil
 import requests
 from dotenv import load_dotenv
 from github import Github, GithubException, RateLimitExceededException
-from requests.exceptions import Timeout
+from requests.exceptions import RequestException, Timeout
 from tqdm import tqdm
 from urllib3 import Retry
 
 logger = logging.getLogger(__name__)
+
+MAX_RETRIES = 3
+RETRY_DELAY = 5
 
 
 def configure_logging(debug=False):
@@ -81,7 +84,6 @@ class LinkwardenManager:
     def __init__(self, linkwarden_url, linkwarden_token):
         if not linkwarden_url or not linkwarden_token:
             raise ValueError("Linkwarden URL and token must be provided")
-        # Ensure the base URL ends with /api/v1
         self.linkwarden_url = linkwarden_url.rstrip("/") + "/api/v1"
         self.linkwarden_token = linkwarden_token
         self.headers = {
@@ -92,22 +94,32 @@ class LinkwardenManager:
     def get_existing_links(self, collection_id):
         page = 1
         while True:
-            try:
-                response = requests.get(
-                    f"{self.linkwarden_url}/links",
-                    params={"collectionId": collection_id, "page": page},
-                    headers=self.headers,
-                )
-                response.raise_for_status()
-                data = response.json()
-                links = data.get("response", [])
-                if not links:
+            for attempt in range(MAX_RETRIES):
+                try:
+                    response = requests.get(
+                        f"{self.linkwarden_url}/links",
+                        params={"collectionId": collection_id, "page": page},
+                        headers=self.headers,
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    links = data.get("response", [])
+                    if not links:
+                        return
+                    yield from (link["url"] for link in links)
+                    page += 1
                     break
-                yield from (link["url"] for link in links)
-                page += 1
-            except requests.RequestException as e:
-                logger.error(f"Error fetching links from page {page}: {str(e)}")
-                break
+                except RequestException as e:
+                    logger.warning(
+                        f"Error fetching links from page {page} (attempt {attempt + 1}/{MAX_RETRIES}): {str(e)}"
+                    )
+                    if attempt == MAX_RETRIES - 1:
+                        logger.error(
+                            f"Max retries reached for page {page}. Moving to next page."
+                        )
+                        page += 1
+                        break
+                    time.sleep(RETRY_DELAY)
 
     def get_collections(self):
         try:
@@ -133,7 +145,7 @@ class LinkwardenManager:
                 f"{self.linkwarden_url}/collections",
                 headers=self.headers,
                 json=data,
-                timeout=30,  # Add a 30-second timeout
+                timeout=30,
             )
             logger.debug(f"Response status code: {response.status_code}")
             logger.debug(f"Response content: {response.text}")
@@ -159,7 +171,7 @@ class LinkwardenManager:
             "title": repo.full_name,
             "description": repo.description or "",
             "collection": {"id": collection_id},
-            "tags": [{"name": "GitHub"}, {"name": "Starred"}],
+            "tags": [{"name": "GitHub"}, {"name": "GitHub Stars"}],
         }
 
         logger.debug(
@@ -322,7 +334,7 @@ class StarwardenApp:
             collection_id = collection.get("id")
             logger.debug(f"Created new collection with ID: {collection_id}")
             print(f"Created new collection with ID: {collection_id}")
-            existing_links = set()  # Empty set for new collection
+            existing_links = set()
 
         print("Fetching starred repositories from GitHub...")
         total_repos = self.github_manager.user.get_starred().totalCount
