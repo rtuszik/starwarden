@@ -11,11 +11,16 @@ from dotenv import load_dotenv
 from github import Github, GithubException, RateLimitExceededException
 from urllib3 import Retry
 
-# Set up logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 logger = logging.getLogger(__name__)
+
+
+def configure_logging(debug=False):
+    log_level = logging.DEBUG if debug else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
 
 
 class GithubStarManager:
@@ -96,13 +101,13 @@ class LinkwardenManager:
             )
             response.raise_for_status()
             data = response.json()
-            logger.debug(f"Raw API Response: {json.dumps(data, indent=2)}")
             collections = data.get("response", [])
-            logger.debug(f"Parsed collections: {json.dumps(collections, indent=2)}")
+            logger.debug(f"Fetched collections: {json.dumps(collections, indent=2)}")
             return collections
         except requests.RequestException as e:
-            logger.error(f"Error fetching collections from Linkwarden: {str(e)}")
-            return None
+            raise StarwardenError(
+                f"Error fetching collections from Linkwarden: {str(e)}"
+            )
 
     def create_collection(self, name, description=""):
         data = {"name": name}
@@ -333,6 +338,20 @@ class StarwardenApp:
         logger.info(f"Skipped uploads: {skipped_uploads}")
 
 
+class StarwardenError(Exception):
+    """Base exception class for Starwarden application"""
+
+    pass
+
+
 if __name__ == "__main__":
-    app = StarwardenApp()
-    app.run()
+    try:
+        configure_logging()
+        app = StarwardenApp()
+        app.run()
+    except StarwardenError as e:
+        logger.error(f"Starwarden error: {str(e)}")
+        sys.exit(1)
+    except Exception as e:
+        logger.exception(f"Unexpected error: {str(e)}")
+        sys.exit(1)
