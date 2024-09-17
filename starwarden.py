@@ -18,6 +18,7 @@ from rich.prompt import Prompt
 from rich.theme import Theme
 from rich.table import Table, Column
 from rich.padding import Padding
+from rich.style import Style
 from rich import box
 from urllib3 import Retry
 
@@ -25,10 +26,10 @@ logger = logging.getLogger(__name__)
 
 
 theme = Theme({
-    "info": "dim green",
-    "prompt": "cyan",
-    "warning": "magenta",
-    "danger": "bold red"
+    "info": "#74c7ec",
+    "prompt": "#cba6f7",
+    "warning": "#fab387",
+    "danger": "#f38ba8"
 })
 console = Console(theme=theme)
 
@@ -288,7 +289,7 @@ class StarwardenApp:
 |_______/       |__|    /__/     \__\ | _| `._____|   \__/  \__/ /__/     \__\ | _| `._____||_______/ |_______||__| \__| 
                                                                                                                          
         """
-        console.print(Panel(welcome_text, expand=True, border_style="bold blue"), justify="center")
+        console.print(Panel(welcome_text, expand=True, border_style="#fab387"), justify="center", style="info")
 
     def main_menu(self):
         options = [
@@ -296,9 +297,9 @@ class StarwardenApp:
             "Create a new GitHub Stars collection",
             "Exit",
         ]
-        console.print("Choose an option:", style="prompt")
+        console.print("Choose an option:", style="info")
         for i, option in enumerate(options, 1):
-            console.print(f"  {i}. {option}")
+            console.print(f"  {i}. {option}", style="info")
 
         choice = Prompt.ask(
             "Enter your choice", choices=[str(i) for i in range(1, len(options) + 1)]
@@ -316,7 +317,7 @@ class StarwardenApp:
         logger.info("Fetching existing collections...")
         console.print("Available collections:", style="info")
         ids = []
-        collection_table = Table(Column(header="Collection ID", justify="center", header_style="bold blue"), Column(header="Name", justify="left", header_style="bold bright_magenta", no_wrap=True), Column(header="Number of Links", justify="center", header_style="bold red"), title="", box=box.SIMPLE_HEAD)
+        collection_table = Table(Column(header="Collection ID", justify="center", header_style="#fab387", style="#fab387"), Column(header="Name", justify="left", header_style="#eba0ac", style="#eba0ac", no_wrap=True), Column(header="Number of Links", justify="center", header_style="#cba6f7", style="#cba6f7"), title="", box=box.SIMPLE_HEAD)
 
         for i, collection in enumerate(collections, 1):
             collection_table.add_row(f"{collection.get('id')}",f"{collection.get('name')}", f"{collection.get('_count', {}).get('links', 'No. of links unknown')}")
@@ -358,7 +359,7 @@ class StarwardenApp:
                     f"Found {len(existing_links)} existing links in the collection."
                 )
                 console.print(
-                    f"[green]Found {len(existing_links)} existing links in the collection.[/green]"
+                    f"Found {len(existing_links)} existing links in the collection.", style="info"
                 )
             elif flavor == 2:
                 collection_name = Prompt.ask(
@@ -366,24 +367,24 @@ class StarwardenApp:
                 )
                 logger.info(f"Creating new collection: {collection_name}")
                 console.print(
-                    f"[bold cyan]Creating new collection: {collection_name}[/bold cyan]"
+                    f"Creating new collection: {collection_name}", style="info"
                 )
                 collection = self.linkwarden_manager.create_collection(collection_name)
                 if not collection:
                     logger.error("Failed to create a new collection. Exiting.")
                     console.print(
-                        "[bold red]Failed to create a new collection. Exiting.[/bold red]"
+                        "Failed to create a new collection. Exiting.", style="danger"
                     )
                     return
                 collection_id = collection.get("id")
                 logger.info(f"Created new collection with ID: {collection_id}")
                 console.print(
-                    f"[green]Created new collection with ID: {collection_id}[/green]"
+                    f"Created new collection with ID: {collection_id}", style="info"
                 )
                 existing_links = set()
             else:
                 logger.info("Exiting StarWarden.")
-                console.print("[bold red]Exiting StarWarden. Goodbye![/bold red]")
+                console.print("Exiting StarWarden. Goodbye!", style="info")
                 return
 
         else:
@@ -396,13 +397,13 @@ class StarwardenApp:
                 f"Found {len(existing_links)} existing links in the collection."
             )
             console.print(
-                f"[green]Found {len(existing_links)} existing links in the collection.[/green]"
+                f"Found {len(existing_links)} existing links in the collection.", style="info"
             )
 
 
         logger.info("Fetching starred repositories from GitHub...")
         console.print(
-            "[bold cyan]Fetching starred repositories from GitHub...[/bold cyan]"
+            "Fetching starred repositories from GitHub...", style="info"
         )
         total_repos = self.github_manager.user.get_starred().totalCount
         logger.info(f"Total starred repositories: {total_repos}")
@@ -414,7 +415,7 @@ class StarwardenApp:
 
         with Progress() as progress:
             task = progress.add_task(
-                "[cyan]Processing starred repos...", total=total_repos
+                "Processing starred repos...", total=total_repos, style="info"
             )
             for repo in self.github_manager.starred_repos():
                 if repo.html_url in existing_links:
@@ -474,7 +475,7 @@ class StarwardenApp:
         logger.info(f"Skipped uploads: {skipped_uploads}")
 
         console.print(
-            "\n[bold green]Finished processing all starred repositories.[/bold green]"
+            "\nFinished processing all starred repositories.", style="info"
         )
         console.print(f"Successful uploads: {successful_uploads}", style="info")
         console.print(f"Failed uploads: {failed_uploads}", style="warning")
