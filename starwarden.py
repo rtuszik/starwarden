@@ -304,12 +304,13 @@ class StarwardenApp:
         console.print("[bold cyan]Available collections:[/bold cyan]")
         for i, collection in enumerate(collections, 1):
             console.print(
-                f"  {i}. [green]{collection.get('name', 'Unnamed')}[/green] (ID: {collection.get('id', 'Unknown')}) - {collection.get('description', 'No description')}"
+                f"  {i}. [green]{collection.get('name', 'Unnamed')}[/green] - Links: {collection.get('_count', {}).get('links', 'No. of links unknown')}"
             )
 
         choice = Prompt.ask(
             "Enter the number of your choice",
             choices=[str(i) for i in range(1, len(collections) + 1)],
+            show_choices=False,
         )
         selected = collections[int(choice) - 1]
         logger.info(
