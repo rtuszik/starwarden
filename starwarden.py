@@ -266,13 +266,16 @@ class StarwardenApp:
             logger.setLevel(logging.DEBUG)
 
     def display_welcome(self):
-        welcome_text = """
-        ╔═══════════════════════════════════════╗
-        ║             StarWarden                ║
-        ║  GitHub Stars to Linkwarden Exporter  ║
-        ╚═══════════════════════════════════════╝
+        welcome_text = r"""
+     _______.___________.    ___      .______     ____    __    ____  ___      .______       _______   _______ .__   __. 
+    /       |           |   /   \     |   _  \    \   \  /  \  /   / /   \     |   _  \     |       \ |   ____||  \ |  | 
+   |   (----`---|  |----`  /  ^  \    |  |_)  |    \   \/    \/   / /  ^  \    |  |_)  |    |  .--.  ||  |__   |   \|  | 
+    \   \       |  |      /  /_\  \   |      /      \            / /  /_\  \   |      /     |  |  |  ||   __|  |  . `  | 
+.----)   |      |  |     /  _____  \  |  |\  \----.  \    /\    / /  _____  \  |  |\  \----.|  '--'  ||  |____ |  |\   | 
+|_______/       |__|    /__/     \__\ | _| `._____|   \__/  \__/ /__/     \__\ | _| `._____||_______/ |_______||__| \__| 
+                                                                                                                         
         """
-        console.print(Panel(welcome_text, expand=False, border_style="bold blue"))
+        console.print(Panel(welcome_text, expand=True, border_style="bold blue"))
 
     def main_menu(self):
         options = [
@@ -450,7 +453,6 @@ class StarwardenApp:
 
 class StarwardenError(Exception):
     """Base exception class for Starwarden application"""
-
     pass
 
 
