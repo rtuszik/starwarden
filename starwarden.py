@@ -6,20 +6,31 @@ import time
 from argparse import ArgumentParser
 from logging.handlers import RotatingFileHandler
 from math import ceil
-
 import requests
 from dotenv import load_dotenv
 from github import Github, GithubException, RateLimitExceededException
 from requests.exceptions import Timeout
+from http.client import HTTPConnection
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress
 from rich.prompt import Prompt
+from rich.theme import Theme
+from rich.table import Table, Column
+from rich.padding import Padding
+from rich import box
 from urllib3 import Retry
 
 logger = logging.getLogger(__name__)
 
-console = Console()
+
+theme = Theme({
+    "info": "dim green",
+    "prompt": "cyan",
+    "warning": "magenta",
+    "danger": "bold red"
+})
+console = Console(theme=theme)
 
 MAX_RETRIES = 3
 RETRY_DELAY = 5
@@ -38,7 +49,6 @@ def configure_logging(debug=False):
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
     root_logger.addHandler(file_handler)
-
 
 class GithubStarManager:
     def __init__(self, github_token, github_username):
@@ -245,7 +255,8 @@ class StarwardenApp:
         parser = ArgumentParser(
             description="Export GitHub starred repositories as individual links to Linkwarden"
         )
-        parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+        parser.add_argument("--debug", action="store_true", help="Enable Debug Logging")
+        parser.add_argument("-id", type=int, help="Update Specified Collection")
         return parser.parse_args()
 
     def load_env(self):
@@ -264,6 +275,8 @@ class StarwardenApp:
     def setup_logging(self):
         if self.args.debug:
             logger.setLevel(logging.DEBUG)
+            HTTPConnection.debuglevel = 1
+
 
     def display_welcome(self):
         welcome_text = r"""
@@ -275,7 +288,7 @@ class StarwardenApp:
 |_______/       |__|    /__/     \__\ | _| `._____|   \__/  \__/ /__/     \__\ | _| `._____||_______/ |_______||__| \__| 
                                                                                                                          
         """
-        console.print(Panel(welcome_text, expand=True, border_style="bold blue"))
+        console.print(Panel(welcome_text, expand=True, border_style="bold blue"), justify="center")
 
     def main_menu(self):
         options = [
@@ -283,7 +296,7 @@ class StarwardenApp:
             "Create a new GitHub Stars collection",
             "Exit",
         ]
-        console.print("[bold cyan]Choose an option:[/bold cyan]")
+        console.print("Choose an option:", style="prompt")
         for i, option in enumerate(options, 1):
             console.print(f"  {i}. {option}")
 
@@ -296,46 +309,86 @@ class StarwardenApp:
         collections = self.linkwarden_manager.get_collections()
         if collections is None or not collections:
             console.print(
-                "[bold red]No collections found or failed to fetch collections.[/bold red]"
+                "No collections found or failed to fetch collections.", style="danger"
             )
             return None
 
         logger.info("Fetching existing collections...")
-        console.print("[bold cyan]Available collections:[/bold cyan]")
+        console.print("Available collections:", style="info")
+        ids = []
+        collection_table = Table(Column(header="Collection ID", justify="center", header_style="bold blue"), Column(header="Name", justify="left", header_style="bold bright_magenta", no_wrap=True), Column(header="Number of Links", justify="center", header_style="bold red"), title="", box=box.SIMPLE_HEAD)
+
         for i, collection in enumerate(collections, 1):
-            console.print(
-                f"  {i}. [green]{collection.get('name', 'Unnamed')}[/green] - Links: {collection.get('_count', {}).get('links', 'No. of links unknown')}"
-            )
+            collection_table.add_row(f"{collection.get('id')}",f"{collection.get('name')}", f"{collection.get('_count', {}).get('links', 'No. of links unknown')}")
+            ids.append(str(collection.get("id")))
+
+        console.print(collection_table)
+
 
         choice = Prompt.ask(
-            "Enter the number of your choice",
-            choices=[str(i) for i in range(1, len(collections) + 1)],
+            "Enter Collection ID: ",
+            choices=ids,
             show_choices=False,
         )
-        selected = collections[int(choice) - 1]
-        logger.info(
-            f"Selected collection: {selected.get('name')} (ID: {selected.get('id')})"
-        )
-        return selected.get("id")
+        return choice
 
     def run(self):
-        self.display_welcome()
-        flavor = self.main_menu()
-        if flavor == 1:
-            console.print("[bold cyan]Fetching existing collections...[/bold cyan]")
-            collection_id = self.select_or_create_collection()
-            if not collection_id:
-                logger.error("Failed to select a collection. Exiting.")
+        if not self.args.id:
+            self.display_welcome()
+            flavor = self.main_menu()
+            if flavor == 1:
+                console.print("Fetching existing collections...", style="info")
+                collection_id = self.select_or_create_collection()
+                if not collection_id:
+                    logger.error("Failed to select a collection. Exiting.")
+                    console.print(
+                        "Failed to select a collection. Exiting.", style="danger"
+                    )
+                    return
+
+                console.print(f"Selected collection ID: {collection_id}", style="info")
+
                 console.print(
-                    "[bold red]Failed to select a collection. Exiting.[/bold red]"
+                    "Fetching existing links in the collection...", style="info"
                 )
+                existing_links = set(
+                    self.linkwarden_manager.get_existing_links(collection_id)
+                )
+                logger.info(
+                    f"Found {len(existing_links)} existing links in the collection."
+                )
+                console.print(
+                    f"[green]Found {len(existing_links)} existing links in the collection.[/green]"
+                )
+            elif flavor == 2:
+                collection_name = Prompt.ask(
+                    "Enter the name for the new GitHub Stars collection"
+                )
+                logger.info(f"Creating new collection: {collection_name}")
+                console.print(
+                    f"[bold cyan]Creating new collection: {collection_name}[/bold cyan]"
+                )
+                collection = self.linkwarden_manager.create_collection(collection_name)
+                if not collection:
+                    logger.error("Failed to create a new collection. Exiting.")
+                    console.print(
+                        "[bold red]Failed to create a new collection. Exiting.[/bold red]"
+                    )
+                    return
+                collection_id = collection.get("id")
+                logger.info(f"Created new collection with ID: {collection_id}")
+                console.print(
+                    f"[green]Created new collection with ID: {collection_id}[/green]"
+                )
+                existing_links = set()
+            else:
+                logger.info("Exiting StarWarden.")
+                console.print("[bold red]Exiting StarWarden. Goodbye![/bold red]")
                 return
 
-            console.print(f"[green]Selected collection ID: {collection_id}[/green]")
-
-            console.print(
-                "[bold cyan]Fetching existing links in the collection...[/bold cyan]"
-            )
+        else:
+            collection_id = self.args.id
+            logger.debug(f"Collection ID: {collection_id}")
             existing_links = set(
                 self.linkwarden_manager.get_existing_links(collection_id)
             )
@@ -345,31 +398,7 @@ class StarwardenApp:
             console.print(
                 f"[green]Found {len(existing_links)} existing links in the collection.[/green]"
             )
-        elif flavor == 2:
-            collection_name = Prompt.ask(
-                "Enter the name for the new GitHub Stars collection"
-            )
-            logger.info(f"Creating new collection: {collection_name}")
-            console.print(
-                f"[bold cyan]Creating new collection: {collection_name}[/bold cyan]"
-            )
-            collection = self.linkwarden_manager.create_collection(collection_name)
-            if not collection:
-                logger.error("Failed to create a new collection. Exiting.")
-                console.print(
-                    "[bold red]Failed to create a new collection. Exiting.[/bold red]"
-                )
-                return
-            collection_id = collection.get("id")
-            logger.info(f"Created new collection with ID: {collection_id}")
-            console.print(
-                f"[green]Created new collection with ID: {collection_id}[/green]"
-            )
-            existing_links = set()
-        else:
-            logger.info("Exiting StarWarden.")
-            console.print("[bold red]Exiting StarWarden. Goodbye![/bold red]")
-            return
+
 
         logger.info("Fetching starred repositories from GitHub...")
         console.print(
@@ -377,7 +406,7 @@ class StarwardenApp:
         )
         total_repos = self.github_manager.user.get_starred().totalCount
         logger.info(f"Total starred repositories: {total_repos}")
-        console.print(f"[green]Total starred repositories: {total_repos}[/green]")
+        console.print(f"Total starred repositories: {total_repos}", style="info")
 
         successful_uploads = 0
         failed_uploads = 0
@@ -447,9 +476,9 @@ class StarwardenApp:
         console.print(
             "\n[bold green]Finished processing all starred repositories.[/bold green]"
         )
-        console.print(f"[green]Successful uploads: {successful_uploads}[/green]")
-        console.print(f"[yellow]Failed uploads: {failed_uploads}[/yellow]")
-        console.print(f"[cyan]Skipped uploads: {skipped_uploads}[/cyan]")
+        console.print(f"Successful uploads: {successful_uploads}", style="info")
+        console.print(f"Failed uploads: {failed_uploads}", style="warning")
+        console.print(f"Skipped uploads: {skipped_uploads}", style="info")
 
 
 class StarwardenError(Exception):
@@ -464,9 +493,9 @@ if __name__ == "__main__":
         app.run()
     except StarwardenError as e:
         logger.error(f"Starwarden error: {str(e)}")
-        console.print(f"[bold red]Starwarden error: {str(e)}[/bold red]")
+        console.print(f"Starwarden error: {str(e)}", style="danger")
         sys.exit(1)
     except Exception as e:
         logger.exception(f"Unexpected error: {str(e)}")
-        console.print(f"[bold red]Unexpected error: {str(e)}[/bold red]")
+        console.print(f"Unexpected error: {str(e)}", style="danger")
         sys.exit(1)
