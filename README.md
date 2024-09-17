@@ -20,11 +20,14 @@ StarWarden exports GitHub starred repositories to Linkwarden as individual links
 
 1. Clone the repository
 2. Install requirements:
-   ```
+
+   ```bash
    pip install -r requirements.txt
    ```
+
 3. Create a `.env` file with:
-   ```
+
+   ```bash
    GITHUB_TOKEN=your_github_token
    GITHUB_USERNAME=your_github_username
    LINKWARDEN_URL=your_linkwarden_instance_url
@@ -34,23 +37,15 @@ StarWarden exports GitHub starred repositories to Linkwarden as individual links
 ## Usage
 
 Run:
-```
+
+```bash
 python starwarden.py
 ```
 
 For debug logging:
-```
+
+```bash
 python starwarden.py --debug
 ```
 
 Follow the prompts to update or create a collection.
-
-## Configuration
-
-Set these environment variables:
-
-- `GITHUB_TOKEN`
-- `GITHUB_USERNAME`
-- `LINKWARDEN_URL`
-- `LINKWARDEN_TOKEN`
-
