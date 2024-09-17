@@ -2,6 +2,8 @@
 
 StarWarden exports GitHub starred repositories to Linkwarden as individual links.
 
+![screenshot](https://github.com/rtuszik/starwarden/blob/main/assets/screenshot.png?raw=true)
+
 ## Features
 
 - Export GitHub stars to Linkwarden
