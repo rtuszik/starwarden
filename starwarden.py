@@ -4,33 +4,29 @@ import os
 import sys
 import time
 from argparse import ArgumentParser
+from http.client import HTTPConnection
 from logging.handlers import RotatingFileHandler
 from math import ceil
+
 import requests
 from dotenv import load_dotenv
 from github import Github, GithubException, RateLimitExceededException
 from requests.exceptions import Timeout
-from http.client import HTTPConnection
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress
 from rich.prompt import Prompt
+from rich.table import Column, Table
 from rich.theme import Theme
-from rich.table import Table, Column
-from rich.padding import Padding
-from rich.style import Style
-from rich import box
 from urllib3 import Retry
 
 logger = logging.getLogger(__name__)
 
 
-theme = Theme({
-    "info": "#74c7ec",
-    "prompt": "#cba6f7",
-    "warning": "#fab387",
-    "danger": "#f38ba8"
-})
+theme = Theme(
+    {"info": "#74c7ec", "prompt": "#cba6f7", "warning": "#fab387", "danger": "#f38ba8"}
+)
 console = Console(theme=theme)
 
 MAX_RETRIES = 3
@@ -50,6 +46,7 @@ def configure_logging(debug=False):
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
     root_logger.addHandler(file_handler)
+
 
 class GithubStarManager:
     def __init__(self, github_token, github_username):
@@ -278,18 +275,21 @@ class StarwardenApp:
             logger.setLevel(logging.DEBUG)
             HTTPConnection.debuglevel = 1
 
-
     def display_welcome(self):
         welcome_text = r"""
-     _______.___________.    ___      .______     ____    __    ____  ___      .______       _______   _______ .__   __. 
-    /       |           |   /   \     |   _  \    \   \  /  \  /   / /   \     |   _  \     |       \ |   ____||  \ |  | 
-   |   (----`---|  |----`  /  ^  \    |  |_)  |    \   \/    \/   / /  ^  \    |  |_)  |    |  .--.  ||  |__   |   \|  | 
-    \   \       |  |      /  /_\  \   |      /      \            / /  /_\  \   |      /     |  |  |  ||   __|  |  . `  | 
-.----)   |      |  |     /  _____  \  |  |\  \----.  \    /\    / /  _____  \  |  |\  \----.|  '--'  ||  |____ |  |\   | 
-|_______/       |__|    /__/     \__\ | _| `._____|   \__/  \__/ /__/     \__\ | _| `._____||_______/ |_______||__| \__| 
-                                                                                                                         
+     _______.___________.    ___      .______     ____    __    ____  ___      .______       _______   _______ .__   __.
+    /       |           |   /   \     |   _  \    \   \  /  \  /   / /   \     |   _  \     |       \ |   ____||  \ |  |
+   |   (----`---|  |----`  /  ^  \    |  |_)  |    \   \/    \/   / /  ^  \    |  |_)  |    |  .--.  ||  |__   |   \|  |
+    \   \       |  |      /  /_\  \   |      /      \            / /  /_\  \   |      /     |  |  |  ||   __|  |  . `  |
+.----)   |      |  |     /  _____  \  |  |\  \----.  \    /\    / /  _____  \  |  |\  \----.|  '--'  ||  |____ |  |\   |
+|_______/       |__|    /__/     \__\ | _| `._____|   \__/  \__/ /__/     \__\ | _| `._____||_______/ |_______||__| \__|
+
         """
-        console.print(Panel(welcome_text, expand=True, border_style="#fab387"), justify="center", style="info")
+        console.print(
+            Panel(welcome_text, expand=True, border_style="#fab387"),
+            justify="center",
+            style="info",
+        )
 
     def main_menu(self):
         options = [
@@ -317,14 +317,39 @@ class StarwardenApp:
         logger.info("Fetching existing collections...")
         console.print("Available collections:", style="info")
         ids = []
-        collection_table = Table(Column(header="Collection ID", justify="center", header_style="#fab387", style="#fab387"), Column(header="Name", justify="left", header_style="#eba0ac", style="#eba0ac", no_wrap=True), Column(header="Number of Links", justify="center", header_style="#cba6f7", style="#cba6f7"), title="", box=box.SIMPLE_HEAD)
+        collection_table = Table(
+            Column(
+                header="Collection ID",
+                justify="center",
+                header_style="#fab387",
+                style="#fab387",
+            ),
+            Column(
+                header="Name",
+                justify="left",
+                header_style="#eba0ac",
+                style="#eba0ac",
+                no_wrap=True,
+            ),
+            Column(
+                header="Number of Links",
+                justify="center",
+                header_style="#cba6f7",
+                style="#cba6f7",
+            ),
+            title="",
+            box=box.SIMPLE_HEAD,
+        )
 
         for i, collection in enumerate(collections, 1):
-            collection_table.add_row(f"{collection.get('id')}",f"{collection.get('name')}", f"{collection.get('_count', {}).get('links', 'No. of links unknown')}")
+            collection_table.add_row(
+                f"{collection.get('id')}",
+                f"{collection.get('name')}",
+                f"{collection.get('_count', {}).get('links', 'No. of links unknown')}",
+            )
             ids.append(str(collection.get("id")))
 
         console.print(collection_table)
-
 
         choice = Prompt.ask(
             "Enter Collection ID: ",
@@ -359,7 +384,8 @@ class StarwardenApp:
                     f"Found {len(existing_links)} existing links in the collection."
                 )
                 console.print(
-                    f"Found {len(existing_links)} existing links in the collection.", style="info"
+                    f"Found {len(existing_links)} existing links in the collection.",
+                    style="info",
                 )
             elif flavor == 2:
                 collection_name = Prompt.ask(
@@ -397,14 +423,12 @@ class StarwardenApp:
                 f"Found {len(existing_links)} existing links in the collection."
             )
             console.print(
-                f"Found {len(existing_links)} existing links in the collection.", style="info"
+                f"Found {len(existing_links)} existing links in the collection.",
+                style="info",
             )
 
-
         logger.info("Fetching starred repositories from GitHub...")
-        console.print(
-            "Fetching starred repositories from GitHub...", style="info"
-        )
+        console.print("Fetching starred repositories from GitHub...", style="info")
         total_repos = self.github_manager.user.get_starred().totalCount
         logger.info(f"Total starred repositories: {total_repos}")
         console.print(f"Total starred repositories: {total_repos}", style="info")
@@ -474,9 +498,7 @@ class StarwardenApp:
         logger.info(f"Failed uploads: {failed_uploads}")
         logger.info(f"Skipped uploads: {skipped_uploads}")
 
-        console.print(
-            "\nFinished processing all starred repositories.", style="info"
-        )
+        console.print("\nFinished processing all starred repositories.", style="info")
         console.print(f"Successful uploads: {successful_uploads}", style="info")
         console.print(f"Failed uploads: {failed_uploads}", style="warning")
         console.print(f"Skipped uploads: {skipped_uploads}", style="info")
@@ -484,6 +506,7 @@ class StarwardenApp:
 
 class StarwardenError(Exception):
     """Base exception class for Starwarden application"""
+
     pass
 
 
