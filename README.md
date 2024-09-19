@@ -63,13 +63,13 @@ For automated, unsupervised updates, you can use Docker with the provided docker
 3. Use the following `docker-compose.yml` file:
 
    ```yaml
-   version: '3'
+   version: "3"
    services:
    starwarden:
-      image: rtuszik/starwarden:latest
-      env_file: .env
-      volumes:
-         - ./starwarden.log:/app/starwarden.log
+     image: rtuszik/starwarden:latest
+     env_file: .env
+     volumes:
+       - ./starwarden.log:/app/starwarden.log
    ```
 
 4. Run the following command to start the Docker container:
