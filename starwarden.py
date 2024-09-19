@@ -3,15 +3,17 @@ import logging
 import os
 import sys
 import time
+import argparse
 from argparse import ArgumentParser
 from http.client import HTTPConnection
 from logging.handlers import RotatingFileHandler
 from math import ceil
+from typing import List, Dict, Any
 
 import requests
 from dotenv import load_dotenv
 from github import Github, GithubException, RateLimitExceededException
-from requests.exceptions import Timeout
+from requests.exceptions import Timeout, RequestException
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
@@ -22,7 +24,6 @@ from rich.theme import Theme
 from urllib3 import Retry
 
 logger = logging.getLogger(__name__)
-
 
 theme = Theme(
     {"info": "#74c7ec", "prompt": "#cba6f7", "warning": "#fab387", "danger": "#f38ba8"}
@@ -43,54 +44,88 @@ def configure_logging(debug=False):
     file_handler = RotatingFileHandler(log_file, maxBytes=1024 * 1024, backupCount=5)
     file_handler.setFormatter(log_formatter)
 
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(log_formatter)
+
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
     root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
+
+def log_exception(e):
+    logger.exception(f"An exception occurred: {str(e)}")
+    console.print(f"An error occurred: {str(e)}", style="danger")
 
 
 class GithubStarManager:
     def __init__(self, github_token, github_username):
-        self.gh = (
-            Github(github_token, retry=self.config_retry())
-            if github_token
-            else Github(retry=self.config_retry())
-        )
-        self.user = self.gh.get_user(github_username)
+        self.gh = Github(github_token, retry=self.config_retry()) if github_token else Github(retry=self.config_retry())
+        self.github_username = github_username
+        self.user = None
+        self.initialize_user()
+
+    def initialize_user(self):
+        try:
+            self.user = self.gh.get_user(self.github_username)
+        except GithubException as e:
+            logger.error(f"Failed to initialize GitHub user: {str(e)}", exc_info=True)
+            raise StarwardenError(f"Failed to initialize GitHub user: {str(e)}")
 
     @staticmethod
     def config_retry(backoff_factor=1.0, total=8):
         Retry.DEFAULT_BACKOFF_MAX = backoff_factor * 2 ** (total - 1)
         return Retry(total=total, backoff_factor=backoff_factor)
 
-    def starred_repos(self):
-        starred = self.user.get_starred()
-        total_pages = ceil(starred.totalCount / 30)
+    def starred_repos(self, skip_sleep=False):
+        if not self.user:
+            logger.error("User is not initialized")
+            return []
+        try:
+            starred = self.user.get_starred()
+            total_pages = ceil(starred.totalCount / 30)
 
-        for page_num in range(0, total_pages):
-            while True:
-                try:
-                    for repo in starred.get_page(page_num):
-                        yield repo
+            for page_num in range(0, total_pages):
+                max_retries = 3
+                for _ in range(max_retries):
+                    try:
+                        for repo in starred.get_page(page_num):
+                            yield repo
+                        break
+                    except RateLimitExceededException as e:
+                        if skip_sleep:
+                            logger.warning("Rate limit exceeded, skipping sleep as requested")
+                            continue
+                        self.handle_rate_limit(e, skip_sleep=skip_sleep)
+                    except GithubException as e:
+                        if e.status == 403 and "rate limit" in str(e).lower():
+                            if skip_sleep:
+                                logger.warning("Rate limit exceeded, skipping sleep as requested")
+                                continue
+                            self.handle_rate_limit(e, skip_sleep=skip_sleep)
+                        else:
+                            logger.error(f"GitHub API error: {str(e)}")
+                            raise
+                else:
+                    logger.error(f"Max retries reached for page {page_num}")
                     break
-                except RateLimitExceededException as e:
-                    self.handle_rate_limit(e)
-                except GithubException as e:
-                    if e.status == 403 and "rate limit" in str(e).lower():
-                        self.handle_rate_limit(e)
-                    else:
-                        logger.error(f"GitHub API error: {str(e)}")
-                        raise
+        except GithubException as e:
+            logger.error(f"Error fetching starred repos: {str(e)}")
+            raise
 
     @staticmethod
-    def handle_rate_limit(e, retry_after=None):
+    def handle_rate_limit(e, retry_after=None, skip_sleep=False):
         if retry_after is None:
-            retry_after = e.headers.get("Retry-After", 60)
-
+            retry_after = (
+                e.headers.get("Retry-After", 60)
+                if hasattr(e, "headers") and e.headers
+                else 60
+            )
         retry_after = int(retry_after)
         logger.warning(
             f"Rate limit exceeded. Waiting for {retry_after} seconds before retrying."
         )
-        time.sleep(retry_after)
+        if not skip_sleep:
+            time.sleep(retry_after)
 
 
 class LinkwardenManager:
@@ -153,10 +188,11 @@ class LinkwardenManager:
             collections = data.get("response", [])
             logger.debug(f"Fetched collections: {json.dumps(collections, indent=2)}")
             return collections
-        except requests.RequestException as e:
+        except RequestException as e:
+            logger.error(f"Error fetching collections from Linkwarden: {str(e)}", exc_info=True)
             raise StarwardenError(
                 f"Error fetching collections from Linkwarden: {str(e)}"
-            )
+            ) from e
 
     def create_collection(self, name, description=""):
         data = {"name": name, "description": description}
@@ -224,10 +260,9 @@ class LinkwardenManager:
                 )
                 return created_link["id"]
             else:
-                logger.error(
+                raise StarwardenError(
                     f"Unexpected response format for {repo.full_name}. Response: {response_json}"
                 )
-                return None
 
         except requests.RequestException as e:
             logger.error(f"Error uploading {repo.full_name} to Linkwarden: {str(e)}")
@@ -235,16 +270,19 @@ class LinkwardenManager:
                 logger.error(f"Response status code: {e.response.status_code}")
                 logger.error(f"Response content: {e.response.content}")
 
-            return None
+            raise StarwardenError(f"Failed to upload {repo.full_name} to Linkwarden: {str(e)}")
 
 
 class StarwardenApp:
     def __init__(self):
-        self.args = self.parse_args()
+        self.args: argparse.Namespace = self.parse_args()
         self.load_env()
         self.setup_logging()
-        self.github_manager = GithubStarManager(self.github_token, self.github_username)
-        self.linkwarden_manager = LinkwardenManager(
+        try:
+            self.github_manager: GithubStarManager = GithubStarManager(self.github_token, self.github_username)
+        except Exception as e:
+            raise StarwardenError(f"Failed to initialize GitHub user: {str(e)}")
+        self.linkwarden_manager: LinkwardenManager = LinkwardenManager(
             self.linkwarden_url, self.linkwarden_token
         )
 
@@ -272,7 +310,7 @@ class StarwardenApp:
 
     def setup_logging(self):
         if self.args.debug:
-            logger.setLevel(logging.DEBUG)
+            logging.getLogger().setLevel(logging.DEBUG)
             HTTPConnection.debuglevel = 1
 
     def display_welcome(self):
@@ -307,12 +345,27 @@ class StarwardenApp:
         return int(choice)
 
     def select_or_create_collection(self):
+        logger.info("Entering select_or_create_collection method")
         collections = self.linkwarden_manager.get_collections()
+        logger.debug(f"Retrieved collections: {collections}")
+        
         if collections is None or not collections:
+            logger.info("No collections found. Creating a new collection.")
             console.print(
-                "No collections found or failed to fetch collections.", style="danger"
+                "No collections found. Creating a new collection.", style="info"
             )
-            return None
+            collection_name = Prompt.ask("Enter the name for the new GitHub Stars collection")
+            logger.debug(f"User entered collection name: {collection_name}")
+            new_collection = self.linkwarden_manager.create_collection(collection_name)
+            logger.debug(f"Created new collection: {new_collection}")
+            
+            if new_collection and isinstance(new_collection, dict) and "id" in new_collection:
+                logger.info(f"Successfully created new collection with ID: {new_collection['id']}")
+                return new_collection["id"]
+            else:
+                logger.error(f"Failed to create new collection. Received: {new_collection}")
+                console.print("Failed to create new collection.", style="danger")
+                return None
 
         logger.info("Fetching existing collections...")
         console.print("Available collections:", style="info")
@@ -352,11 +405,28 @@ class StarwardenApp:
         console.print(collection_table)
 
         choice = Prompt.ask(
-            "Enter Collection ID: ",
-            choices=ids,
+            "Enter Collection ID or 'new' to create a new collection: ",
+            choices=ids + ["new"],
             show_choices=False,
         )
-        return choice
+        logger.debug(f"User choice: {choice}")
+        
+        if choice == "new":
+            collection_name = Prompt.ask("Enter the name for the new GitHub Stars collection")
+            logger.debug(f"User entered new collection name: {collection_name}")
+            new_collection = self.linkwarden_manager.create_collection(collection_name)
+            logger.debug(f"Created new collection: {new_collection}")
+            
+            if isinstance(new_collection, dict) and "id" in new_collection:
+                logger.info(f"Successfully created new collection with ID: {new_collection['id']}")
+                return new_collection["id"]
+            else:
+                logger.error(f"Failed to create new collection. Received: {new_collection}")
+                console.print("Failed to create new collection.", style="danger")
+                return None
+        
+        logger.info(f"User selected existing collection with ID: {choice}")
+        return int(choice)
 
     def run(self):
         if not self.args.id:
@@ -407,7 +477,16 @@ class StarwardenApp:
                 console.print(
                     f"Created new collection with ID: {collection_id}", style="info"
                 )
-                existing_links = set()
+                existing_links = set(
+                    self.linkwarden_manager.get_existing_links(collection_id)
+                )
+                logger.info(
+                    f"Found {len(existing_links)} existing links in the new collection."
+                )
+                console.print(
+                    f"Found {len(existing_links)} existing links in the new collection.",
+                    style="info",
+                )
             else:
                 logger.info("Exiting StarWarden.")
                 console.print("Exiting StarWarden. Goodbye!", style="info")
@@ -510,16 +589,48 @@ class StarwardenError(Exception):
     pass
 
 
+def check_test_coverage():
+    """Run tests with coverage using pytest-cov and display the results."""
+    import pytest
+    import sys
+    from coverage import Coverage
+
+    cov = Coverage()
+    cov.start()
+
+    # Run pytest with coverage
+    exit_code = pytest.main(["-v", "tests"])
+
+    cov.stop()
+    cov.save()
+
+    if exit_code == 0:
+        console.print("\nTests passed successfully.", style="info")
+    else:
+        console.print("\nSome tests failed. Please check the output above.", style="warning")
+
+    # Print coverage report
+    console.print("\nCoverage Report:", style="info")
+    cov.report()
+
+    # Generate HTML report
+    cov.html_report(directory='htmlcov')
+
+    console.print("\nDetailed HTML coverage report generated in 'htmlcov' directory.", style="info")
+
 if __name__ == "__main__":
     try:
         configure_logging()
         app = StarwardenApp()
         app.run()
     except StarwardenError as e:
-        logger.error(f"Starwarden error: {str(e)}")
+        logger.error(f"Starwarden error: {str(e)}", exc_info=True)
         console.print(f"Starwarden error: {str(e)}", style="danger")
         sys.exit(1)
     except Exception as e:
         logger.exception(f"Unexpected error: {str(e)}")
-        console.print(f"Unexpected error: {str(e)}", style="danger")
+        console.print(f"An unexpected error occurred. Please check the logs for more details.", style="danger")
         sys.exit(1)
+
+# Uncomment the following line to run coverage check
+# check_test_coverage()

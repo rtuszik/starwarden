@@ -157,3 +157,4 @@ Thumbs.db
 
 
 docker-compose.local.yml
+.aider*
