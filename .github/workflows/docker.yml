@@ -1,11 +1,12 @@
 name: StarWarden Build
 
 on:
+  release:
+    types: [published]
   push:
-    branches-ignore: ["main"]
+    branches: ["main"]
   pull_request:
     branches: ["main"]
-  workflow_dispatch:
 
 env:
   DOCKER_IMAGE: rtuszik/starwarden
@@ -25,6 +26,18 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_IMAGE }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=semver,pattern={{version}},enable=${{ github.event_name == 'release' }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ github.event_name == 'release' }}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
 
       - name: Build and push
         id: docker_build
@@ -33,7 +46,8 @@ jobs:
           context: .
           file: ./Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.DOCKER_IMAGE }}:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache
           cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache,mode=max
 
