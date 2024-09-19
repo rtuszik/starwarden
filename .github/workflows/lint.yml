@@ -1,5 +1,10 @@
 name: Lint
-on: [push, pull_request]
+on:
+  push:
+    branches-ignore: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
 
 permissions: {}
 
