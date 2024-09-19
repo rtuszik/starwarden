@@ -1,8 +1,16 @@
 name: Lint
 on: [push, pull_request]
+
+permissions: {}
+
 jobs:
   lint:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: read
+      statuses: write
 
     steps:
       - name: Checkout Code
