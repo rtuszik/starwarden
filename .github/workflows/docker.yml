@@ -1,14 +1,14 @@
 name: StarWarden Build
 
 on:
-    push:
-        branches: [ "main" ]
-    pull_request:
-        branches: [ "main" ]
-    workflow_dispatch:
+  push:
+    branches-ignore: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
 
 env:
-    DOCKER_IMAGE: rtuszik/starwarden
+  DOCKER_IMAGE: rtuszik/starwarden
 
 jobs:
   build-and-push:
@@ -27,6 +27,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push
+        id: docker_build
         uses: docker/build-push-action@v6
         with:
           context: .
