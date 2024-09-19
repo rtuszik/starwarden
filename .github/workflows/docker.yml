@@ -3,10 +3,7 @@ name: StarWarden Build
 on:
   release:
     types: [published]
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
+  workflow_dispatch:
 
 env:
   DOCKER_IMAGE: rtuszik/starwarden
