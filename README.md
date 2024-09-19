@@ -1,3 +1,8 @@
+![Docker Pulls](https://img.shields.io/docker/pulls/rtuszik/starwarden) ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/rtuszik/starwarden/docker.yml) ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/rtuszik/starwarden/lint.yml)
+
+
+
+
 # StarWarden
 
 StarWarden exports GitHub starred repositories to Linkwarden as individual links.
