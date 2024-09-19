@@ -1,0 +1,15 @@
+
+version: '3'
+
+services:
+  starwarden:
+    build: .
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_USERNAME=${GITHUB_USERNAME}
+      - LINKWARDEN_URL=${LINKWARDEN_URL}
+      - LINKWARDEN_TOKEN=${LINKWARDEN_TOKEN}
+      - COLLECTION_ID=${COLLECTION_ID}
+      - CRON_SCHEDULE=${CRON_SCHEDULE:-0 0 * * *}
+    volumes:
+      - ./starwarden.log:/app/starwarden.log
