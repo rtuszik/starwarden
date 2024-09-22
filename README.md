@@ -1,20 +1,16 @@
 ![Docker Pulls](https://img.shields.io/docker/pulls/rtuszik/starwarden) ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/rtuszik/starwarden/docker.yml) ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/rtuszik/starwarden/lint.yml)
 
-
-
-
 # StarWarden
 
-StarWarden exports GitHub starred repositories to Linkwarden as individual links.
+StarWarden allows you to export GitHub stars to Linkwarden.
 
 ![screenshot](https://github.com/rtuszik/starwarden/blob/main/assets/screenshot.png?raw=true)
 
 ## Features
 
 - Export GitHub stars to Linkwarden
-- Create new or update existing Linkwarden collections
-- TUI Interface
-- Docker support for unsupervised updates
+- Export to existing collection or create new colletion
+- Keep Linkwarden collection up-to-date with your GitHub stars using the docker image.
 
 ## Setup
 
