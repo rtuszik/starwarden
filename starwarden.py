@@ -42,13 +42,9 @@ def configure_logging(debug=False):
     file_handler = RotatingFileHandler(log_file, maxBytes=1024 * 1024, backupCount=5)
     file_handler.setFormatter(log_formatter)
 
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(log_formatter)
-
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
     root_logger.addHandler(file_handler)
-    root_logger.addHandler(console_handler)
 
     # Suppress overly verbose logging from libraries
     logging.getLogger("urllib3").setLevel(logging.WARNING)
