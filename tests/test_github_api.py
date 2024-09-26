@@ -22,7 +22,7 @@ def test_initialize_user_exception():
             404, "User not found"
         )
         with pytest.raises(StarwardenError) as excinfo:
-            manager = GithubStarManager("fake_token", "fake_username")
+            GithubStarManager("fake_token", "fake_username")
         assert 'Failed to initialize GitHub user: 404 "User not found"' in str(
             excinfo.value
         )

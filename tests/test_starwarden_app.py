@@ -27,7 +27,7 @@ def starwarden_app():
 def test_parse_args(starwarden_app):
     with patch("sys.argv", ["starwarden.py", "--debug"]):
         args = starwarden_app.parse_args()
-        assert args.debug == True
+        assert args.debug is True
 
 
 def test_load_env(starwarden_app):
@@ -301,7 +301,7 @@ def test_initialize_user_error_handling():
         mock_parse_args.return_value = Mock(debug=False, id=None)
 
         with pytest.raises(StarwardenError) as excinfo:
-            app = StarwardenApp()
+            StarwardenApp()
 
         assert "Failed to initialize GitHub user: Test error" in str(excinfo.value)
 
