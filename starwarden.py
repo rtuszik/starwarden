@@ -96,7 +96,9 @@ class GithubStarManager:
                         raise StarwardenError(f"GitHub API error: {e}") from e
             else:
                 logger.error(f"Max retries reached for page {page_num}")
-                raise StarwardenError(f"Failed to fetch page {page_num} after {MAX_RETRIES} retries")
+                raise StarwardenError(
+                    f"Failed to fetch page {page_num} after {MAX_RETRIES} retries"
+                )
 
     @staticmethod
     def handle_rate_limit(e, retry_after=None):
@@ -251,7 +253,9 @@ class LinkwardenManager:
             if hasattr(e, "response") and e.response is not None:
                 logger.error(f"Response status code: {e.response.status_code}")
                 logger.error(f"Response content: {e.response.content}")
-            raise StarwardenError(f"Failed to upload {repo.full_name} to Linkwarden") from e
+            raise StarwardenError(
+                f"Failed to upload {repo.full_name} to Linkwarden"
+            ) from e
 
 
 class StarwardenApp:
@@ -260,7 +264,9 @@ class StarwardenApp:
             self.args = self.parse_args()
             self.load_env()
             self.setup_logging()
-            self.github_manager = GithubStarManager(self.github_token, self.github_username)
+            self.github_manager = GithubStarManager(
+                self.github_token, self.github_username
+            )
             self.linkwarden_manager = LinkwardenManager(
                 self.linkwarden_url, self.linkwarden_token
             )
@@ -543,5 +549,8 @@ if __name__ == "__main__":
         sys.exit(1)
     except Exception as e:
         logger.exception(f"Unexpected error: {e}")
-        console.print(f"An unexpected error occurred. Please check the logs for more details.", style="danger")
+        console.print(
+            f"An unexpected error occurred. Please check the logs for more details.",
+            style="danger",
+        )
         sys.exit(1)
