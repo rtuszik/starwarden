@@ -52,6 +52,7 @@ def configure_logging(debug=False):
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
 
+
 def log_exception(e):
     logger.exception(f"An exception occurred: {str(e)}")
     console.print(f"An error occurred: {str(e)}", style="danger")
@@ -59,7 +60,11 @@ def log_exception(e):
 
 class GithubStarManager:
     def __init__(self, github_token, github_username):
-        self.gh = Github(github_token, retry=self.config_retry()) if github_token else Github(retry=self.config_retry())
+        self.gh = (
+            Github(github_token, retry=self.config_retry())
+            if github_token
+            else Github(retry=self.config_retry())
+        )
         self.github_username = github_username
         self.user = None
         self.initialize_user()
@@ -93,13 +98,17 @@ class GithubStarManager:
                         break
                     except RateLimitExceededException as e:
                         if skip_sleep:
-                            logger.warning("Rate limit exceeded, skipping sleep as requested")
+                            logger.warning(
+                                "Rate limit exceeded, skipping sleep as requested"
+                            )
                             continue
                         self.handle_rate_limit(e, skip_sleep=skip_sleep)
                     except GithubException as e:
                         if e.status == 403 and "rate limit" in str(e).lower():
                             if skip_sleep:
-                                logger.warning("Rate limit exceeded, skipping sleep as requested")
+                                logger.warning(
+                                    "Rate limit exceeded, skipping sleep as requested"
+                                )
                                 continue
                             self.handle_rate_limit(e, skip_sleep=skip_sleep)
                         else:
@@ -189,7 +198,9 @@ class LinkwardenManager:
             logger.debug(f"Fetched collections: {json.dumps(collections, indent=2)}")
             return collections
         except RequestException as e:
-            logger.error(f"Error fetching collections from Linkwarden: {str(e)}", exc_info=True)
+            logger.error(
+                f"Error fetching collections from Linkwarden: {str(e)}", exc_info=True
+            )
             raise StarwardenError(
                 f"Error fetching collections from Linkwarden: {str(e)}"
             ) from e
@@ -270,7 +281,9 @@ class LinkwardenManager:
                 logger.error(f"Response status code: {e.response.status_code}")
                 logger.error(f"Response content: {e.response.content}")
 
-            raise StarwardenError(f"Failed to upload {repo.full_name} to Linkwarden: {str(e)}")
+            raise StarwardenError(
+                f"Failed to upload {repo.full_name} to Linkwarden: {str(e)}"
+            )
 
 
 class StarwardenApp:
@@ -279,7 +292,9 @@ class StarwardenApp:
         self.load_env()
         self.setup_logging()
         try:
-            self.github_manager: GithubStarManager = GithubStarManager(self.github_token, self.github_username)
+            self.github_manager: GithubStarManager = GithubStarManager(
+                self.github_token, self.github_username
+            )
         except Exception as e:
             raise StarwardenError(f"Failed to initialize GitHub user: {str(e)}")
         self.linkwarden_manager: LinkwardenManager = LinkwardenManager(
@@ -348,22 +363,32 @@ class StarwardenApp:
         logger.info("Entering select_or_create_collection method")
         collections = self.linkwarden_manager.get_collections()
         logger.debug(f"Retrieved collections: {collections}")
-        
+
         if collections is None or not collections:
             logger.info("No collections found. Creating a new collection.")
             console.print(
                 "No collections found. Creating a new collection.", style="info"
             )
-            collection_name = Prompt.ask("Enter the name for the new GitHub Stars collection")
+            collection_name = Prompt.ask(
+                "Enter the name for the new GitHub Stars collection"
+            )
             logger.debug(f"User entered collection name: {collection_name}")
             new_collection = self.linkwarden_manager.create_collection(collection_name)
             logger.debug(f"Created new collection: {new_collection}")
-            
-            if new_collection and isinstance(new_collection, dict) and "id" in new_collection:
-                logger.info(f"Successfully created new collection with ID: {new_collection['id']}")
+
+            if (
+                new_collection
+                and isinstance(new_collection, dict)
+                and "id" in new_collection
+            ):
+                logger.info(
+                    f"Successfully created new collection with ID: {new_collection['id']}"
+                )
                 return new_collection["id"]
             else:
-                logger.error(f"Failed to create new collection. Received: {new_collection}")
+                logger.error(
+                    f"Failed to create new collection. Received: {new_collection}"
+                )
                 console.print("Failed to create new collection.", style="danger")
                 return None
 
@@ -410,21 +435,27 @@ class StarwardenApp:
             show_choices=False,
         )
         logger.debug(f"User choice: {choice}")
-        
+
         if choice == "new":
-            collection_name = Prompt.ask("Enter the name for the new GitHub Stars collection")
+            collection_name = Prompt.ask(
+                "Enter the name for the new GitHub Stars collection"
+            )
             logger.debug(f"User entered new collection name: {collection_name}")
             new_collection = self.linkwarden_manager.create_collection(collection_name)
             logger.debug(f"Created new collection: {new_collection}")
-            
+
             if isinstance(new_collection, dict) and "id" in new_collection:
-                logger.info(f"Successfully created new collection with ID: {new_collection['id']}")
+                logger.info(
+                    f"Successfully created new collection with ID: {new_collection['id']}"
+                )
                 return new_collection["id"]
             else:
-                logger.error(f"Failed to create new collection. Received: {new_collection}")
+                logger.error(
+                    f"Failed to create new collection. Received: {new_collection}"
+                )
                 console.print("Failed to create new collection.", style="danger")
                 return None
-        
+
         logger.info(f"User selected existing collection with ID: {choice}")
         return int(choice)
 
@@ -607,16 +638,22 @@ def check_test_coverage():
     if exit_code == 0:
         console.print("\nTests passed successfully.", style="info")
     else:
-        console.print("\nSome tests failed. Please check the output above.", style="warning")
+        console.print(
+            "\nSome tests failed. Please check the output above.", style="warning"
+        )
 
     # Print coverage report
     console.print("\nCoverage Report:", style="info")
     cov.report()
 
     # Generate HTML report
-    cov.html_report(directory='htmlcov')
+    cov.html_report(directory="htmlcov")
 
-    console.print("\nDetailed HTML coverage report generated in 'htmlcov' directory.", style="info")
+    console.print(
+        "\nDetailed HTML coverage report generated in 'htmlcov' directory.",
+        style="info",
+    )
+
 
 if __name__ == "__main__":
     try:
@@ -629,7 +666,10 @@ if __name__ == "__main__":
         sys.exit(1)
     except Exception as e:
         logger.exception(f"Unexpected error: {str(e)}")
-        console.print(f"An unexpected error occurred. Please check the logs for more details.", style="danger")
+        console.print(
+            f"An unexpected error occurred. Please check the logs for more details.",
+            style="danger",
+        )
         sys.exit(1)
 
 # Uncomment the following line to run coverage check
