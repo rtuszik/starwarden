@@ -11,7 +11,7 @@ from math import ceil
 import requests
 from dotenv import load_dotenv
 from github import Github, GithubException, RateLimitExceededException
-from requests.exceptions import Timeout
+from requests.exceptions import RequestException, Timeout
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
@@ -22,7 +22,6 @@ from rich.theme import Theme
 from urllib3 import Retry
 
 logger = logging.getLogger(__name__)
-
 
 theme = Theme(
     {"info": "#74c7ec", "prompt": "#cba6f7", "warning": "#fab387", "danger": "#f38ba8"}
@@ -43,19 +42,31 @@ def configure_logging(debug=False):
     file_handler = RotatingFileHandler(log_file, maxBytes=1024 * 1024, backupCount=5)
     file_handler.setFormatter(log_formatter)
 
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(log_formatter)
+
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
     root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
+
+    # Suppress overly verbose logging from libraries
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("github").setLevel(logging.WARNING)
 
 
 class GithubStarManager:
     def __init__(self, github_token, github_username):
-        self.gh = (
-            Github(github_token, retry=self.config_retry())
-            if github_token
-            else Github(retry=self.config_retry())
-        )
-        self.user = self.gh.get_user(github_username)
+        try:
+            self.gh = (
+                Github(github_token, retry=self.config_retry())
+                if github_token
+                else Github(retry=self.config_retry())
+            )
+            self.user = self.gh.get_user(github_username)
+        except GithubException as e:
+            logger.error(f"Failed to initialize GitHub client: {e}")
+            raise StarwardenError("GitHub initialization failed") from e
 
     @staticmethod
     def config_retry(backoff_factor=1.0, total=8):
@@ -63,30 +74,39 @@ class GithubStarManager:
         return Retry(total=total, backoff_factor=backoff_factor)
 
     def starred_repos(self):
-        starred = self.user.get_starred()
-        total_pages = ceil(starred.totalCount / 30)
+        try:
+            starred = self.user.get_starred()
+            total_pages = ceil(starred.totalCount / 30)
+        except GithubException as e:
+            logger.error(f"Failed to get starred repositories: {e}")
+            raise StarwardenError("Failed to fetch starred repositories") from e
 
         for page_num in range(0, total_pages):
-            while True:
+            retry_count = 0
+            while retry_count < MAX_RETRIES:
                 try:
                     for repo in starred.get_page(page_num):
                         yield repo
                     break
                 except RateLimitExceededException as e:
                     self.handle_rate_limit(e)
+                    retry_count += 1
                 except GithubException as e:
                     if e.status == 403 and "rate limit" in str(e).lower():
                         self.handle_rate_limit(e)
+                        retry_count += 1
                     else:
-                        logger.error(f"GitHub API error: {str(e)}")
-                        raise
+                        logger.error(f"GitHub API error: {e}")
+                        raise StarwardenError(f"GitHub API error: {e}") from e
+            else:
+                logger.error(f"Max retries reached for page {page_num}")
+                raise StarwardenError(f"Failed to fetch page {page_num} after {MAX_RETRIES} retries")
 
     @staticmethod
     def handle_rate_limit(e, retry_after=None):
         if retry_after is None:
-            retry_after = e.headers.get("Retry-After", 60)
+            retry_after = int(e.headers.get("Retry-After", 60))
 
-        retry_after = int(retry_after)
         logger.warning(
             f"Rate limit exceeded. Waiting for {retry_after} seconds before retrying."
         )
@@ -135,28 +155,28 @@ class LinkwardenManager:
                 seen_links.update(new_links)
                 yield from new_links
                 page += 1
-            except requests.RequestException as e:
-                logger.error(f"Error fetching links from page {page}: {str(e)}")
+            except RequestException as e:
+                logger.error(f"Error fetching links from page {page}: {e}")
                 if hasattr(e, "response") and e.response is not None:
                     logger.error(f"Response status code: {e.response.status_code}")
                     logger.error(f"Response content: {e.response.text}")
-                break
+                raise StarwardenError(f"Failed to fetch links from page {page}") from e
 
     def get_collections(self):
         try:
             response = requests.get(
                 f"{self.linkwarden_url}/collections",
                 headers=self.headers,
+                timeout=30,
             )
             response.raise_for_status()
             data = response.json()
             collections = data.get("response", [])
             logger.debug(f"Fetched collections: {json.dumps(collections, indent=2)}")
             return collections
-        except requests.RequestException as e:
-            raise StarwardenError(
-                f"Error fetching collections from Linkwarden: {str(e)}"
-            )
+        except RequestException as e:
+            logger.error(f"Error fetching collections from Linkwarden: {e}")
+            raise StarwardenError("Failed to fetch collections from Linkwarden") from e
 
     def create_collection(self, name, description=""):
         data = {"name": name, "description": description}
@@ -178,13 +198,13 @@ class LinkwardenManager:
             logger.error(
                 "Request timed out while creating new collection in Linkwarden"
             )
-            return None
-        except requests.RequestException as e:
-            logger.error(f"Error creating new collection in Linkwarden: {str(e)}")
+            raise StarwardenError("Timeout while creating new collection") from None
+        except RequestException as e:
+            logger.error(f"Error creating new collection in Linkwarden: {e}")
             if hasattr(e, "response") and e.response is not None:
                 logger.error(f"Response status code: {e.response.status_code}")
                 logger.error(f"Response content: {e.response.text}")
-            return None
+            raise StarwardenError("Failed to create new collection") from e
 
     def upload_link(self, collection_id, repo):
         link_data = {
@@ -204,6 +224,7 @@ class LinkwardenManager:
                 f"{self.linkwarden_url}/links",
                 headers=self.headers,
                 json=link_data,
+                timeout=30,
             )
             response.raise_for_status()
             response_json = response.json()
@@ -227,26 +248,29 @@ class LinkwardenManager:
                 logger.error(
                     f"Unexpected response format for {repo.full_name}. Response: {response_json}"
                 )
-                return None
+                raise StarwardenError(f"Failed to create link for {repo.full_name}")
 
-        except requests.RequestException as e:
-            logger.error(f"Error uploading {repo.full_name} to Linkwarden: {str(e)}")
+        except RequestException as e:
+            logger.error(f"Error uploading {repo.full_name} to Linkwarden: {e}")
             if hasattr(e, "response") and e.response is not None:
                 logger.error(f"Response status code: {e.response.status_code}")
                 logger.error(f"Response content: {e.response.content}")
-
-            return None
+            raise StarwardenError(f"Failed to upload {repo.full_name} to Linkwarden") from e
 
 
 class StarwardenApp:
     def __init__(self):
-        self.args = self.parse_args()
-        self.load_env()
-        self.setup_logging()
-        self.github_manager = GithubStarManager(self.github_token, self.github_username)
-        self.linkwarden_manager = LinkwardenManager(
-            self.linkwarden_url, self.linkwarden_token
-        )
+        try:
+            self.args = self.parse_args()
+            self.load_env()
+            self.setup_logging()
+            self.github_manager = GithubStarManager(self.github_token, self.github_username)
+            self.linkwarden_manager = LinkwardenManager(
+                self.linkwarden_url, self.linkwarden_token
+            )
+        except Exception as e:
+            logger.error(f"Failed to initialize StarwardenApp: {e}")
+            raise StarwardenError("Initialization failed") from e
 
     @staticmethod
     def parse_args():
@@ -268,12 +292,14 @@ class StarwardenApp:
             logger.error(
                 "Missing required environment variables. Please check your .env file."
             )
-            sys.exit(1)
+            raise StarwardenError("Missing required environment variables")
 
     def setup_logging(self):
         if self.args.debug:
             logger.setLevel(logging.DEBUG)
             HTTPConnection.debuglevel = 1
+        else:
+            logger.setLevel(logging.INFO)
 
     def display_welcome(self):
         welcome_text = r"""
@@ -516,10 +542,10 @@ if __name__ == "__main__":
         app = StarwardenApp()
         app.run()
     except StarwardenError as e:
-        logger.error(f"Starwarden error: {str(e)}")
-        console.print(f"Starwarden error: {str(e)}", style="danger")
+        logger.error(f"Starwarden error: {e}")
+        console.print(f"Starwarden error: {e}", style="danger")
         sys.exit(1)
     except Exception as e:
-        logger.exception(f"Unexpected error: {str(e)}")
-        console.print(f"Unexpected error: {str(e)}", style="danger")
+        logger.exception(f"Unexpected error: {e}")
+        console.print(f"An unexpected error occurred. Please check the logs for more details.", style="danger")
         sys.exit(1)
