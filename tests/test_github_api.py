@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import Mock, patch
-from github import Github, GithubException, RateLimitExceededException
+from github import GithubException, RateLimitExceededException
 from starwarden import GithubStarManager, StarwardenError
 
 
