@@ -1,5 +1,5 @@
 PyGithub ==2.4.0
 requests ==2.32.3
 python-dotenv==1.0.1
-tqdm==4.66.5
+tqdm==4.66.6
 rich==13.8.1
