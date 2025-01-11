@@ -105,38 +105,38 @@ class LinkwardenManager:
         }
 
     def get_existing_links(self, collection_id):
-        page = 1
+        cursor = 0
         seen_links = set()
         while True:
             try:
                 logger.debug(
-                    f"Fetching links from page {page} for collection {collection_id}"
+                    f"Fetching links from cursor {cursor} for collection {collection_id}"
                 )
                 response = requests.get(
                     f"{self.linkwarden_url}/links",
-                    params={"collectionId": collection_id, "page": page},
+                    params={"collectionId": collection_id, "cursor": cursor, "sort": 1},
                     headers=self.headers,
                     timeout=30,
                 )
                 response.raise_for_status()
                 data = response.json()
                 links = data.get("response", [])
-                logger.debug(f"Fetched {len(links)} links from page {page}")
+                logger.debug(f"Fetched {len(links)} links from cursor {cursor}")
 
                 new_links = [
                     link["url"] for link in links if link["url"] not in seen_links
                 ]
                 if not new_links:
                     logger.info(
-                        f"No new links found on page {page}. Stopping pagination."
+                        f"No new links found from cursor {cursor}. Stopping pagination."
                     )
                     break
 
                 seen_links.update(new_links)
                 yield from new_links
-                page += 1
+                cursor += 50
             except requests.RequestException as e:
-                logger.error(f"Error fetching links from page {page}: {str(e)}")
+                logger.error(f"Error fetching links from cursor {cursor}: {str(e)}")
                 if hasattr(e, "response") and e.response is not None:
                     logger.error(f"Response status code: {e.response.status_code}")
                     logger.error(f"Response content: {e.response.text}")
@@ -187,10 +187,14 @@ class LinkwardenManager:
             return None
 
     def upload_link(self, collection_id, repo):
+        description = repo.description or ""
+        if len(description) > 2048:
+            # Truncate and add ellipsis so final length is 2048
+            description = description[:2045] + "..."
         link_data = {
             "url": repo.html_url,
             "title": repo.full_name,
-            "description": repo.description or "",
+            "description": description,
             "collection": {"id": collection_id},
             "tags": [{"name": "GitHub"}, {"name": "GitHub Stars"}],
         }
@@ -356,7 +360,7 @@ class StarwardenApp:
             choices=ids,
             show_choices=False,
         )
-        return choice
+        return int(choice)
 
     def run(self):
         if not self.args.id:
