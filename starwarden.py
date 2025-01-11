@@ -187,10 +187,14 @@ class LinkwardenManager:
             return None
 
     def upload_link(self, collection_id, repo):
+        description = repo.description or ""
+        if len(description) > 2048:
+            # Truncate and add ellipsis so final length is 2048
+            description = description[:2045] + "..."
         link_data = {
             "url": repo.html_url,
             "title": repo.full_name,
-            "description": repo.description or "",
+            "description": description,
             "collection": {"id": collection_id},
             "tags": [{"name": "GitHub"}, {"name": "GitHub Stars"}],
         }
