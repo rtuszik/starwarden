@@ -356,7 +356,7 @@ class StarwardenApp:
             choices=ids,
             show_choices=False,
         )
-        return choice
+        return int(choice)
 
     def run(self):
         if not self.args.id:
