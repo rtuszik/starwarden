@@ -134,7 +134,8 @@ class LinkwardenManager:
 
                 seen_links.update(new_links)
                 yield from new_links
-                cursor += 50
+                cursor = links[len(links)-1].get("id")
+                
             except requests.RequestException as e:
                 logger.error(f"Error fetching links from cursor {cursor}: {str(e)}")
                 if hasattr(e, "response") and e.response is not None:
