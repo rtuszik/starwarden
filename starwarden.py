@@ -468,7 +468,7 @@ class StarwardenApp:
                         tags.append({"name": "GitHub"})
                     if self.opt_tag_githubStars:
                         tags.append({"name": "GitHub Stars"})
-                    if self.opt_tag_language:
+                    if self.opt_tag_language and repo.language:
                         tags.append({"name": repo.language})
                     if self.opt_tag_username:
                         tags.append({"name": self.github_username})
