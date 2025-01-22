@@ -28,6 +28,11 @@ StarWarden allows you to export GitHub stars to Linkwarden.
    GITHUB_USERNAME=your_github_username
    LINKWARDEN_URL=your_linkwarden_instance_url
    LINKWARDEN_TOKEN=your_linkwarden_api_token
+   OPT_TAG=true
+   OPT_TAG_GITHUB=true
+   OPT_TAG_GITHUBSTARS=true
+   OPT_TAG_LANGUAGE=false
+   OPT_TAG_USERNAME=false
    ```
 
 ## Usage
@@ -43,6 +48,25 @@ To directly update an existing collection without an interactive menu, run:
 ```bash
 python starwarden.py -id YOUR_COLLECTION_ID
 ```
+## Environment Variables
+
+| Name           | Default        | Description 
+| :---           |     :---:      |        :--- 
+| GITHUB_TOKEN   || GitHub API token    
+| GITHUB_USERNAME|| GitHub username      
+| LINKWARDEN_URL || Linkwarden URL https://your-linkwarden-instance.com
+| LINKWARDEN_TOKEN| | Linkwarden API token
+| COLLECTION_ID  || Linkwarden Collection ID to update (Number) /collections/499
+| CRON_SCHEDULE | 0 6 * * * | Cron Schedule (default is daily at 6am) 
+||(True/False)|
+| OPT_TAG | true| Enable/Disable all Tagging 
+| OPT_TAG_GITHUB | true | Tag Link with "GitHub" 
+| OPT_TAG_GITHUBSTARS | true| Tag Link with "GitHub Stars" 
+| OPT_TAG_LANGUAGE | false| Tag Link with Language of repo (e.g. Python or JavaScript) 
+| OPT_TAG_USERNAME | false| Tag GitHub username 
+||-|
+| OPT_TAG_CUSTOM | | Add custom tags, separated by commas (e.g. tag1,tag2) 
+
 
 ## Unsupervised Updates
 
@@ -59,6 +83,11 @@ For automated, unsupervised updates, you can use Docker with the provided docker
    LINKWARDEN_TOKEN=your_linkwarden_api_token
    COLLECTION_ID=your_linkwarden_collection_id
    CRON_SCHEDULE=0 0 * * *  # Run daily at midnight, adjust as needed
+   OPT_TAG=true
+   OPT_TAG_GITHUB=true
+   OPT_TAG_GITHUBSTARS=true
+   OPT_TAG_LANGUAGE=false
+   OPT_TAG_USERNAME=false
    ```
 
 3. Use the following `docker-compose.yml` file:
