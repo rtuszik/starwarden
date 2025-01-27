@@ -134,7 +134,8 @@ class LinkwardenManager:
 
                 seen_links.update(new_links)
                 yield from new_links
-                cursor += 50
+                cursor = links[len(links)-1].get("id")
+                
             except requests.RequestException as e:
                 logger.error(f"Error fetching links from cursor {cursor}: {str(e)}")
                 if hasattr(e, "response") and e.response is not None:
@@ -186,7 +187,7 @@ class LinkwardenManager:
                 logger.error(f"Response content: {e.response.text}")
             return None
 
-    def upload_link(self, collection_id, repo):
+    def upload_link(self, collection_id, repo, tags):
         description = repo.description or ""
         if len(description) > 2048:
             # Truncate and add ellipsis so final length is 2048
@@ -196,9 +197,9 @@ class LinkwardenManager:
             "title": repo.full_name,
             "description": description,
             "collection": {"id": collection_id},
-            "tags": [{"name": "GitHub"}, {"name": "GitHub Stars"}],
         }
-
+        if tags:
+            link_data["tags"] = tags
         logger.debug(
             f"Sending link data to Linkwarden: {json.dumps(link_data, indent=2)}"
         )
@@ -267,6 +268,12 @@ class StarwardenApp:
         self.github_username = os.getenv("GITHUB_USERNAME")
         self.linkwarden_url = os.getenv("LINKWARDEN_URL")
         self.linkwarden_token = os.getenv("LINKWARDEN_TOKEN")
+        self.opt_tag = os.getenv('OPT_TAG', 'false').lower() == 'true'
+        self.opt_tag_github = os.getenv('OPT_TAG_GITHUB', 'false').lower() == 'true'
+        self.opt_tag_githubStars = os.getenv('OPT_TAG_GITHUBSTARS', 'false').lower() == 'true'                
+        self.opt_tag_language = os.getenv('OPT_TAG_LANGUAGE', 'false').lower() == 'true'
+        self.opt_tag_username = os.getenv('OPT_TAG_USERNAME', 'false').lower() == 'true'
+        self.opt_tag_custom = os.getenv('OPT_TAG_CUSTOM') if os.getenv('OPT_TAG_CUSTOM','false').lower() != 'false' and len(os.getenv('OPT_TAG_CUSTOM'))>0 else False
 
         if not all([self.github_username, self.linkwarden_url, self.linkwarden_token]):
             logger.error(
@@ -456,11 +463,27 @@ class StarwardenApp:
 
                 max_retries = 3
                 retry_count = 0
+                tags = []
+                if self.opt_tag:
+                    if self.opt_tag_github:
+                        tags.append({"name": "GitHub"})
+                    if self.opt_tag_githubStars:
+                        tags.append({"name": "GitHub Stars"})
+                    if self.opt_tag_language and repo.language:
+                        tags.append({"name": repo.language})
+                    if self.opt_tag_username:
+                        tags.append({"name": self.github_username})
+                    if self.opt_tag_custom:
+                        for tag in self.opt_tag_custom.split(','):
+                            if len(tag)>0:
+                                tags.append({"name": tag.strip()})
+
+                                                  
                 while retry_count < max_retries:
                     try:
                         logger.info(f"Processing repository: {repo.full_name}")
                         link_id = self.linkwarden_manager.upload_link(
-                            collection_id, repo
+                            collection_id, repo, tags
                         )
 
                         if link_id:
