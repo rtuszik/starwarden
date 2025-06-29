@@ -23,8 +23,7 @@ def get_starred_repos(github_token, github_username):
     for page_num in range(total_pages):
         while True:
             try:
-                for repo in starred.get_page(page_num):
-                    yield repo
+                yield from starred.get_page(page_num)
                 break
             except RateLimitExceededException as e:
                 handle_rate_limit(e)
