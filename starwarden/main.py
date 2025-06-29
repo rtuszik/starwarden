@@ -131,12 +131,12 @@ def run_update(config_data, collection_id):
 def main():
     args = config.parse_args()
     config_data = config.load_env()
-    
-    notify.send_notification(
-        config_data,
-        message="Starwarden is now active",
-        title="Starwarden Status"
-    )
+    if not config_data['DOCKERIZED']:
+        notify.send_notification(
+            config_data,
+            message="Starwarden is now active",
+            title="Starwarden Status"
+        )
     if args.debug:
         HTTPConnection.debuglevel = 1
 
