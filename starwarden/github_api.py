@@ -20,7 +20,7 @@ def get_starred_repos(github_token, github_username):
     starred = user.get_starred()
     total_pages = ceil(starred.totalCount / 30)
 
-    for page_num in range(0, total_pages):
+    for page_num in range(total_pages):
         while True:
             try:
                 for repo in starred.get_page(page_num):
