@@ -1,7 +1,7 @@
 from .utils.logger import get_logger
 import apprise
 
-logger = get_logger
+logger = get_logger()
 
 
 
