@@ -131,6 +131,12 @@ def run_update(config_data, collection_id):
 def main():
     args = config.parse_args()
     config_data = config.load_env()
+    
+    notify.send_notification(
+        config_data,
+        message="Starwarden is now active",
+        title="Starwarden Status"
+    )
     if args.debug:
         HTTPConnection.debuglevel = 1
 
@@ -186,6 +192,7 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
+        tui.console.print_exception(show_locals=True)
         logger.exception(f"Unexpected error: {str(e)}")
         tui.console.print(f"Unexpected error: {str(e)}", style="danger")
         error_message = f"Starwarden process failed with a critical error: {e}"
