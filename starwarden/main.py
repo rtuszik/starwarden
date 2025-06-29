@@ -1,12 +1,12 @@
-import logging
 import sys
 from http.client import HTTPConnection
 
 from rich.progress import Progress
 import requests
 
-from . import config, github_api, linkwarden_api, tui, notify
+from . import config, github_api, linkwarden_api, tui
 from starwarden.utils.logger import get_logger
+from starwarden.utils import notify
 
 logger = get_logger()
 
@@ -132,7 +132,6 @@ def main():
     args = config.parse_args()
     config_data = config.load_env()
     if args.debug:
-        logger.setLevel(logging.DEBUG)
         HTTPConnection.debuglevel = 1
 
     if not args.id:
