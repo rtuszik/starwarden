@@ -38,7 +38,9 @@ def load_env():
         "opt_tag_language": os.getenv("OPT_TAG_LANGUAGE", "false").lower() in ("true", "1"),
         "opt_tag_username": os.getenv("OPT_TAG_USERNAME", "false").lower() in ("true", "1"),
         "opt_tag_custom": os.getenv("OPT_TAG_CUSTOM", ""),
-        "APPRISE_URLS": os.getenv("APPRISE_URLS")
+        "APPRISE_URLS": os.getenv("APPRISE_URLS"),
+        "DOCKERIZED": os.getenv("DOCKERIZED", "false").lower() in ("true", "1")
+
     }
 
     if not all([config["github_username"], config["linkwarden_url"], config["linkwarden_token"]]):
