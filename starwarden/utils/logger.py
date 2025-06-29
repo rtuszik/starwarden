@@ -18,7 +18,7 @@ def setup_logging(
     file_level: LogLevel = os.getenv("FILE_LEVEL", "DEBUG"),
     log_format: str = os.getenv("LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"),
     max_bytes: int = int(os.getenv("MAX_BYTES", 10 * 1024 * 1024)),  # 10MB
-    backup_count: int = int(os.getenv("BACKUP_COUNT", 0))
+    backup_count: int = int(os.getenv("BACKUP_COUNT", 2))
 ) -> logging.Logger:
     global _logger
     if _logger is not None:
