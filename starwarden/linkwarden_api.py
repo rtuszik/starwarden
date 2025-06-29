@@ -104,7 +104,7 @@ def create_collection(linkwarden_url, linkwarden_token, name, description=""):
 def upload_link(linkwarden_url, linkwarden_token, collection_id, repo, tags):
     description = repo.description or ""
     if len(description) > 2048:
-        description = description[:2045] + "..."
+        description = f"{description[:2045]}..."
     link_data = {
         "url": repo.html_url,
         "title": repo.full_name,
