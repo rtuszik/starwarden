@@ -1,4 +1,4 @@
-from utils import get_logger
+from .utils.logger import get_logger
 import apprise
 
 logger = get_logger
