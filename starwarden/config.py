@@ -14,7 +14,7 @@ def parse_args():
         description="Export GitHub starred repositories as individual links to Linkwarden"
     )
     parser.add_argument(
-        "-i", "--id", type=str, help="Specify the collection ID to sync"
+        "-i", "--id", type=int, help="Specify the collection ID to sync"
     )
     parser.add_argument(
         "-d",
