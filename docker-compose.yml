@@ -3,3 +3,5 @@ services:
     starwarden:
         image: rtuszik/starwarden:latest
         env_file: .env
+        volumes:
+            - ./starwarden.log:/app/starwarden.log

@@ -61,13 +61,11 @@ python starwarden.py -id YOUR_COLLECTION_ID
 | COLLECTION_ID       |              | Linkwarden Collection ID to update (Number) /collections/499                                                   |
 | CRON_SCHEDULE       | 0 6 \* \* \* | Cron Schedule (default is daily at 6am)                                                                        |
 | APPRISE_URLS        |              | Apprise URL for push notifications, separated by commas, see [Apprise](https://github.com/caronc/apprise/wiki) |
-|                     | (True/False) |
 | OPT_TAG             |     true     | Enable/Disable all Tagging                                                                                     |
 | OPT_TAG_GITHUB      |     true     | Tag Link with "GitHub"                                                                                         |
 | OPT_TAG_GITHUBSTARS |     true     | Tag Link with "GitHub Stars"                                                                                   |
 | OPT_TAG_LANGUAGE    |    false     | Tag Link with Language of repo (e.g. Python or JavaScript)                                                     |
 | OPT_TAG_USERNAME    |    false     | Tag GitHub username                                                                                            |
-|                     |      -!      |
 | OPT_TAG_CUSTOM      |              | Add custom tags, separated by commas (e.g. tag1,tag2)                                                          |
 
 ## Unsupervised Updates
