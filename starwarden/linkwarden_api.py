@@ -6,6 +6,8 @@ from requests.exceptions import Timeout
 
 logger = get_logger()
 
+LINK_EXISTS_GLOBALLY = object()
+
 def get_existing_links(linkwarden_url, linkwarden_token, collection_id):
     url = f"{linkwarden_url.rstrip('/')}/api/v1/links"
     headers = {
@@ -41,7 +43,9 @@ def get_existing_links(linkwarden_url, linkwarden_token, collection_id):
 
             seen_links.update(new_links)
             yield from new_links
-            cursor = links[len(links)-1].get("id")
+            if not links:
+                break
+            cursor = links[-1].get("id")
 
         except requests.RequestException as e:
             logger.error(f"Error fetching links from cursor {cursor}: {str(e)}")
@@ -136,7 +140,7 @@ def upload_link(linkwarden_url, linkwarden_token, collection_id, repo, tags):
                 logger.info(
                     f"Link for {repo.full_name} already exists in Linkwarden (status 409)."
                 )
-                return "EXISTS_GLOBALLY" 
+                return LINK_EXISTS_GLOBALLY 
 
         response.raise_for_status() 
         response_json = response.json()

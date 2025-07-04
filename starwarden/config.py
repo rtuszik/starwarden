@@ -45,10 +45,6 @@ def load_env():
 
     if not all([config["github_username"], config["linkwarden_url"], config["linkwarden_token"]]):
         logger.error("Missing required environment variables. Please check your .env file.")
-        print(
-            "Missing required environment variables. Please check your .env file.",
-            file=sys.stderr
-        )
         sys.exit(1)
 
     return config
