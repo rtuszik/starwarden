@@ -7,6 +7,7 @@ import requests
 from . import config, github_api, linkwarden_api, tui
 from starwarden.utils.logger import get_logger
 from starwarden.utils import notify
+from .linkwarden_api import LINK_EXISTS_GLOBALLY
 
 logger = get_logger()
 
@@ -84,7 +85,7 @@ def run_update(config_data, collection_id):
                         tags
                     )
 
-                    if link_id == "EXISTS_GLOBALLY": 
+                    if link_id is LINK_EXISTS_GLOBALLY: 
                         logger.info(f"Skipping {repo.full_name} as it already exists globally in Linkwarden.")
                         skipped_uploads += 1
                     elif link_id:

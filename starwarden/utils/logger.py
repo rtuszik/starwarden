@@ -28,28 +28,37 @@ def setup_logging(
 
     # Configure the logger
     logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.DEBUG)  
+    logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter(log_format)
-    logger.handlers.clear()
+
+    # Only add handlers if they don't already exist
 
     # Console handler
     if enable_console_logging:
-        console_handler = RichHandler(rich_tracebacks=True)
-        console_handler.setLevel(console_level)
-        logger.addHandler(console_handler)
+        if not any(isinstance(h, RichHandler) for h in logger.handlers):
+            console_handler = RichHandler(rich_tracebacks=True)
+            console_handler.setLevel(console_level)
+            logger.addHandler(console_handler)
 
     # Rotating File handler
     try:
-        file_handler = RotatingFileHandler(
-            log_file,
-            maxBytes=max_bytes,
-            backupCount=backup_count,
-            encoding='utf-8'
-        )
-        file_handler.setLevel(file_level)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
+        if not any(
+            isinstance(h, RotatingFileHandler) and getattr(h, 'baseFilename', None) == os.path.abspath(log_file)
+            for h in logger.handlers
+        ):
+            file_handler = RotatingFileHandler(
+                log_file,
+                maxBytes=max_bytes,
+                backupCount=backup_count,
+                encoding='utf-8'
+            )
+            file_handler.setLevel(file_level)
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
     except (PermissionError, OSError) as e:
+        # Print to stderr as a fallback in case logger has no handlers yet
+        import sys
+        print(f"Failed to create log file handler for '{log_file}': {e}", file=sys.stderr)
         logger.warning(f"Failed to create log file handler for '{log_file}': {e}", exc_info=False)
 
     logger.propagate = False
