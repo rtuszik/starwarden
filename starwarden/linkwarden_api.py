@@ -129,7 +129,16 @@ def upload_link(linkwarden_url, linkwarden_token, collection_id, repo, tags):
             headers=headers,
             json=link_data,
         )
-        response.raise_for_status()
+        # Check for 409 Conflict 
+        if response.status_code == 409:
+            response_json = response.json()
+            if response_json.get("response") == "Link already exists":
+                logger.info(
+                    f"Link for {repo.full_name} already exists in Linkwarden (status 409)."
+                )
+                return "EXISTS_GLOBALLY" 
+
+        response.raise_for_status() 
         response_json = response.json()
 
         logger.debug(
@@ -157,6 +166,6 @@ def upload_link(linkwarden_url, linkwarden_token, collection_id, repo, tags):
         logger.error(f"Error uploading {repo.full_name} to Linkwarden: {str(e)}")
         if hasattr(e, "response") and e.response is not None:
             logger.error(f"Response status code: {e.response.status_code}")
-            logger.error(f"Response content: {e.response.content}")
+            logger.error(f"Response content: {e.response.text}") 
 
         return None
