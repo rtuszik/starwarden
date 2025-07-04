@@ -1,8 +1,8 @@
 import logging
 import os
-import sys
 from logging.handlers import RotatingFileHandler
 from typing import Optional, Union
+from rich.logging import RichHandler
 
 LogLevel = Union[int, str]
 
@@ -14,8 +14,8 @@ def setup_logging(
     logger_name: str = os.getenv("LOGGER_NAME", "app"),
     log_file: str = os.getenv("LOG_FILE", "starwarden.log"),
     enable_console_logging: bool = os.getenv("ENABLE_CONSOLE_LOGGING", "false").lower() in ('true', '1', 't'),
-    console_level: LogLevel = os.getenv("CONSOLE_LEVEL", "INFO"),
-    file_level: LogLevel = os.getenv("FILE_LEVEL", "DEBUG"),
+    console_level: LogLevel = os.getenv("CONSOLE_LEVEL", "WARNING"),
+    file_level: LogLevel = os.getenv("FILE_LEVEL", "INFO"),
     log_format: str = os.getenv("LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"),
     max_bytes: int = int(os.getenv("MAX_BYTES", 10 * 1024 * 1024)),  # 10MB
     backup_count: int = int(os.getenv("BACKUP_COUNT", 2))
@@ -32,7 +32,7 @@ def setup_logging(
 
     # Console handler
     if enable_console_logging:
-        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler = logging.StreamHandler(RichHandler)
         console_handler.setLevel(console_level)
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
