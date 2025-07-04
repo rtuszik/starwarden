@@ -130,16 +130,15 @@ def run_update(config_data, collection_id):
     tui.console.print(f"Successful uploads: {successful_uploads}", style="info")
     tui.console.print(f"Failed uploads: {failed_uploads}", style="warning")
     tui.console.print(f"Skipped uploads: {skipped_uploads}", style="info")
+    notify.send_notification(
+        config_data,
+        message=f"Successful uploads: {successful_uploads}, failed uploads: {failed_uploads}, skipped_uploads: {skipped_uploads}",
+        title="Starwarden Status"
+    )
     
 def main():
     args = config.parse_args()
     config_data = config.load_env()
-    if not config_data['DOCKERIZED']:
-        notify.send_notification(
-            config_data,
-            message="Starwarden is now active",
-            title="Starwarden Status"
-        )
     if args.debug:
         HTTPConnection.debuglevel = 1
 
