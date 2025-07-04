@@ -28,6 +28,7 @@ StarWarden allows you to export GitHub stars to Linkwarden.
    GITHUB_USERNAME=your_github_username
    LINKWARDEN_URL=your_linkwarden_instance_url
    LINKWARDEN_TOKEN=your_linkwarden_api_token
+   APPRISE_URLS=apprise_url_1,apprise_url_2
    OPT_TAG=true
    OPT_TAG_GITHUB=true
    OPT_TAG_GITHUBSTARS=true
@@ -57,14 +58,15 @@ python starwarden.py -id YOUR_COLLECTION_ID
 | LINKWARDEN_URL || Linkwarden URL https://your-linkwarden-instance.com
 | LINKWARDEN_TOKEN| | Linkwarden API token
 | COLLECTION_ID  || Linkwarden Collection ID to update (Number) /collections/499
-| CRON_SCHEDULE | 0 6 * * * | Cron Schedule (default is daily at 6am) 
+| CRON_SCHEDULE | 0 6 * * * | Cron Schedule (default is daily at 6am)
+| APPRISE_URLS | | Apprise URL for push notifications, separated by commas
 ||(True/False)|
 | OPT_TAG | true| Enable/Disable all Tagging 
 | OPT_TAG_GITHUB | true | Tag Link with "GitHub" 
 | OPT_TAG_GITHUBSTARS | true| Tag Link with "GitHub Stars" 
 | OPT_TAG_LANGUAGE | false| Tag Link with Language of repo (e.g. Python or JavaScript) 
 | OPT_TAG_USERNAME | false| Tag GitHub username 
-||-|
+||-!
 | OPT_TAG_CUSTOM | | Add custom tags, separated by commas (e.g. tag1,tag2) 
 
 
@@ -83,6 +85,7 @@ For automated, unsupervised updates, you can use Docker with the provided docker
    LINKWARDEN_TOKEN=your_linkwarden_api_token
    COLLECTION_ID=your_linkwarden_collection_id
    CRON_SCHEDULE=0 0 * * *  # Run daily at midnight, adjust as needed
+   APPRISE_URLS=apprise_url_1,apprise_url_2
    OPT_TAG=true
    OPT_TAG_GITHUB=true
    OPT_TAG_GITHUBSTARS=true
