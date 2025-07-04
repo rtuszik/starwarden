@@ -13,7 +13,7 @@ def setup_logging(
     *, # Enforce keyword-only arguments
     logger_name: str = os.getenv("LOGGER_NAME", "app"),
     log_file: str = os.getenv("LOG_FILE", "starwarden.log"),
-    enable_console_logging: bool = os.getenv("ENABLE_CONSOLE_LOGGING", "false").lower() in ('true', '1', 't'),
+    enable_console_logging: bool = os.getenv("ENABLE_CONSOLE_LOGGING", "true").lower() in ('true', '1', 't'),
     console_level: LogLevel = os.getenv("CONSOLE_LEVEL", "WARNING"),
     file_level: LogLevel = os.getenv("FILE_LEVEL", "INFO"),
     log_format: str = os.getenv("LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"),
@@ -32,9 +32,8 @@ def setup_logging(
 
     # Console handler
     if enable_console_logging:
-        console_handler = logging.StreamHandler(RichHandler)
+        console_handler = RichHandler(rich_tracebacks=True)
         console_handler.setLevel(console_level)
-        console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
 
     # Rotating File handler

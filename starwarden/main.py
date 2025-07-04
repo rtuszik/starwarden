@@ -84,7 +84,10 @@ def run_update(config_data, collection_id):
                         tags
                     )
 
-                    if link_id:
+                    if link_id == "EXISTS_GLOBALLY": 
+                        logger.info(f"Skipping {repo.full_name} as it already exists globally in Linkwarden.")
+                        skipped_uploads += 1
+                    elif link_id:
                         logger.info(
                             f"Successfully processed {repo.full_name}. Link ID: {link_id}"
                         )
@@ -127,7 +130,7 @@ def run_update(config_data, collection_id):
     tui.console.print(f"Successful uploads: {successful_uploads}", style="info")
     tui.console.print(f"Failed uploads: {failed_uploads}", style="warning")
     tui.console.print(f"Skipped uploads: {skipped_uploads}", style="info")
-
+    
 def main():
     args = config.parse_args()
     config_data = config.load_env()
