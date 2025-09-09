@@ -1,0 +1,17 @@
+[project]
+name = "starwarden"
+version = "1.4.1"
+description = "Sync GitHub Stars to Linkwarden"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "apprise==1.9.3",
+    "pygithub==2.6.1",
+    "python-dotenv==1.1.1",
+    "requests==2.32.4",
+    "rich==14.0.0",
+    "tqdm==4.67.1",
+]
+
+[dependency-groups]
+dev = ["bandit>=1.8.6", "ruff>=0.12.12", "ty>=0.0.1a20", "vulture>=2.14"]
