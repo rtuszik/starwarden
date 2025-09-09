@@ -1,7 +1,7 @@
 version: 2
 updates:
     # Update Python packages
-    - package-ecosystem: "pip"
+    - package-ecosystem: "uv"
       target-branch: "develop"
       directory: "/"
       schedule:
