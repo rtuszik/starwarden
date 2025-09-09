@@ -2,6 +2,7 @@ version: 2
 updates:
     # Update Python packages
     - package-ecosystem: "pip"
+      target-branch: "develop"
       directory: "/"
       schedule:
           interval: "weekly"
@@ -10,6 +11,7 @@ updates:
     # Update GitHub Actions
     - package-ecosystem: "github-actions"
       directory: "/"
+      target-branch: "develop"
       schedule:
           interval: "weekly"
       open-pull-requests-limit: 10
@@ -17,7 +19,7 @@ updates:
     # Update Docker base images
     - package-ecosystem: "docker"
       directory: "/"
+      target-branch: "develop"
       schedule:
           interval: "weekly"
       open-pull-requests-limit: 10
-
