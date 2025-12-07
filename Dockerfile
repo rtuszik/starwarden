@@ -1,4 +1,5 @@
-FROM python:3.12-slim
+FROM ghcr.io/astral-sh/uv:0.9.16-trixie-slim
+
 
 ENV PYTHONUNBUFFERED=1
 ENV GITHUB_TOKEN=""
@@ -22,7 +23,7 @@ RUN apt-get update && apt-get install -y cron && rm -rf /var/lib/apt/lists/*
 
 COPY . .
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN /usr/local/bin/uv sync --locked
 
 # Create a cron job file
 RUN echo '#!/bin/sh' > /app/cron_job.sh && \
@@ -30,7 +31,7 @@ RUN echo '#!/bin/sh' > /app/cron_job.sh && \
     echo '. /app/.env' >> /app/cron_job.sh && \
     echo 'set +a' >> /app/cron_job.sh && \
     echo 'if [ -n "$COLLECTION_ID" ]; then' >> /app/cron_job.sh && \
-    echo '    /usr/local/bin/python /app/starwarden.py -id "$COLLECTION_ID" >> /app/starwarden.log 2>&1' >> /app/cron_job.sh && \
+    echo '     /app/.venv/bin/python /app/starwarden.py -id "$COLLECTION_ID" >> /app/starwarden.log 2>&1' >> /app/cron_job.sh && \
     echo 'else' >> /app/cron_job.sh && \
     echo '    echo "Error: COLLECTION_ID is not set" >> /app/starwarden.log' >> /app/cron_job.sh && \
     echo 'fi' >> /app/cron_job.sh && \
@@ -48,7 +49,7 @@ RUN echo '#!/bin/sh' > /app/start.sh && \
     echo 'crontab /etc/cron.d/starwarden-cron' >> /app/start.sh && \
     echo 'cron' >> /app/start.sh && \
     echo 'if [ -n "$COLLECTION_ID" ]; then' >> /app/start.sh && \
-    echo '    /usr/local/bin/python /app/starwarden.py -id "$COLLECTION_ID"' >> /app/start.sh && \
+    echo '    /app/.venv/bin/python /app/starwarden.py -id "$COLLECTION_ID"' >> /app/start.sh && \
     echo 'else' >> /app/start.sh && \
     echo '    echo "Error: COLLECTION_ID is not set"' >> /app/start.sh && \
     echo 'fi' >> /app/start.sh && \
