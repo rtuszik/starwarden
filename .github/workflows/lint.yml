@@ -1,34 +1,105 @@
-name: Lint
+name: checks
 on:
     pull_request:
-        branches: ["main"]
     workflow_dispatch:
 
-permissions: {}
-
 jobs:
+    setup:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+            - name: "Set up Python"
+              uses: actions/setup-python@v6
+              with:
+                  python-version-file: "pyproject.toml"
+            - name: Install uv
+              uses: astral-sh/setup-uv@v7
+              with:
+                  enable-cache: true
+                  version: 0.8.*
+            - name: Install dependencies
+              run: uv sync --locked
+            - name: Cache dependencies
+              uses: actions/cache/save@v4
+              with:
+                  path: |
+                      .venv
+                      ~/.cache/uv
+                  key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+
     lint:
         runs-on: ubuntu-latest
-
-        permissions:
-            contents: read
-            packages: read
-            statuses: write
-
+        needs: setup
         steps:
-            - name: Checkout Code
-              uses: actions/checkout@v4
+            - uses: actions/checkout@v5
+            - name: "Set up Python"
+              uses: actions/setup-python@v6
               with:
-                  fetch-depth: 0
+                  python-version-file: "pyproject.toml"
+            - name: Install uv
+              uses: astral-sh/setup-uv@v7
+              with:
+                  enable-cache: true
+                  version: 0.8.*
+            - name: Restore dependencies
+              uses: actions/cache/restore@v4
+              with:
+                  path: |
+                      .venv
+                      ~/.cache/uv
+                  key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+                  fail-on-cache-miss: true
+            - name: Run linting
+              run: |
+                  uv run ruff check --fix
+                  uv run ruff format
 
-            - name: Lint Code Base
-              uses: github/super-linter@v7
-              env:
-                  VALIDATE_ALL_CODEBASE: true
-                  FIX_PYTHON_RUFF: true
-                  VALIDATE_PYTHON_RUFF: true
-                  FIX_MARKDOWN_PRETTIER: true
-                  VALIDATE_MARKDOWN_PRETTIER: true
-                  VALIDATE_GITLEAKS: true
-                  VALIDATE_GITHUB_ACTIONS: true
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    typecheck:
+        runs-on: ubuntu-latest
+        needs: setup
+        steps:
+            - uses: actions/checkout@v5
+            - name: "Set up Python"
+              uses: actions/setup-python@v6
+              with:
+                  python-version-file: "pyproject.toml"
+            - name: Install uv
+              uses: astral-sh/setup-uv@v7
+              with:
+                  enable-cache: true
+                  version: 0.8.*
+            - name: Restore dependencies
+              uses: actions/cache/restore@v4
+              with:
+                  path: |
+                      .venv
+                      ~/.cache/uv
+                  key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+                  fail-on-cache-miss: true
+            - name: Run type checking
+              run: uv run ty check
+    vulture:
+        runs-on: ubuntu-latest
+        needs: setup
+        steps:
+            - uses: actions/checkout@v5
+            - name: "Set up Python"
+              uses: actions/setup-python@v6
+              with:
+                  python-version-file: "pyproject.toml"
+            - name: Install uv
+              uses: astral-sh/setup-uv@v7
+              with:
+                  enable-cache: true
+                  version: 0.8.*
+            - name: Restore dependencies
+              uses: actions/cache/restore@v4
+              with:
+                  path: |
+                      .venv
+                      ~/.cache/uv
+                  key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+                  fail-on-cache-miss: true
+            - name: Run vulture
+              run: uv run vulture --min-confidence 100 --exclude ".venv" .
+
