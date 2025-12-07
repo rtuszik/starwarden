@@ -399,8 +399,8 @@ wheels = [
 
 [[package]]
 name = "starwarden"
-version = "0.1.0"
-source = { virtual = "." }
+version = "1.4.1"
+source = { editable = "." }
 dependencies = [
     { name = "apprise" },
     { name = "pygithub" },
