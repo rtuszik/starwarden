@@ -1,15 +1,16 @@
 import sys
 from http.client import HTTPConnection
 
-from rich.progress import Progress
 import requests
+from rich.progress import Progress
 
-from . import config, github_api, linkwarden_api, tui
-from starwarden.utils.logger import get_logger
+from starwarden import config, github_api, linkwarden_api, tui
+from starwarden.linkwarden_api import LINK_EXISTS_GLOBALLY
 from starwarden.utils import notify
-from .linkwarden_api import LINK_EXISTS_GLOBALLY
+from starwarden.utils.logger import get_logger
 
 logger = get_logger()
+
 
 def run_update(config_data, collection_id):
     logger.debug(f"Collection ID: {collection_id}")
@@ -17,12 +18,10 @@ def run_update(config_data, collection_id):
         linkwarden_api.get_existing_links(
             config_data["linkwarden_url"],
             config_data["linkwarden_token"],
-            collection_id
+            collection_id,
         )
     )
-    logger.info(
-        f"Found {len(existing_links)} existing links in the collection."
-    )
+    logger.info(f"Found {len(existing_links)} existing links in the collection.")
     tui.console.print(
         f"Found {len(existing_links)} existing links in the collection.",
         style="info",
@@ -30,10 +29,7 @@ def run_update(config_data, collection_id):
 
     logger.info("Fetching starred repositories from GitHub...")
     tui.console.print("Fetching starred repositories from GitHub...", style="info")
-    total_repos = github_api.get_total_starred_repos(
-        config_data["github_token"],
-        config_data["github_username"]
-    )
+    total_repos = github_api.get_total_starred_repos(config_data["github_token"], config_data["github_username"])
     logger.info(f"Total starred repositories: {total_repos}")
     tui.console.print(f"Total starred repositories: {total_repos}", style="info")
 
@@ -42,17 +38,10 @@ def run_update(config_data, collection_id):
     skipped_uploads = 0
 
     with Progress() as progress:
-        task = progress.add_task(
-            "Processing starred repos...", total=total_repos, style="info"
-        )
-        for repo in github_api.get_starred_repos(
-            config_data["github_token"],
-            config_data["github_username"]
-        ):
+        task = progress.add_task("Processing starred repos...", total=total_repos, style="info")
+        for repo in github_api.get_starred_repos(config_data["github_token"], config_data["github_username"]):
             if repo.html_url in existing_links:
-                logger.info(
-                    f"Skipping {repo.full_name} as it already exists in the collection"
-                )
+                logger.info(f"Skipping {repo.full_name} as it already exists in the collection")
                 skipped_uploads += 1
                 progress.update(task, advance=1)
                 continue
@@ -70,7 +59,7 @@ def run_update(config_data, collection_id):
                 if config_data["opt_tag_username"]:
                     tags.append({"name": config_data["github_username"]})
                 if config_data["opt_tag_custom"]:
-                    for tag in config_data["opt_tag_custom"].split(','):
+                    for tag in config_data["opt_tag_custom"].split(","):
                         if len(tag) > 0:
                             tags.append({"name": tag.strip()})
 
@@ -82,16 +71,14 @@ def run_update(config_data, collection_id):
                         config_data["linkwarden_token"],
                         collection_id,
                         repo,
-                        tags
+                        tags,
                     )
 
-                    if link_id is LINK_EXISTS_GLOBALLY: 
+                    if link_id is LINK_EXISTS_GLOBALLY:
                         logger.info(f"Skipping {repo.full_name} as it already exists globally in Linkwarden.")
                         skipped_uploads += 1
                     elif link_id:
-                        logger.info(
-                            f"Successfully processed {repo.full_name}. Link ID: {link_id}"
-                        )
+                        logger.info(f"Successfully processed {repo.full_name}. Link ID: {link_id}")
                         successful_uploads += 1
                     else:
                         logger.warning(f"Failed to upload {repo.full_name}")
@@ -103,21 +90,15 @@ def run_update(config_data, collection_id):
                         github_api.handle_rate_limit(e, retry_after)
                         retry_count += 1
                     else:
-                        logger.error(
-                            f"Error uploading {repo.full_name} to Linkwarden: {str(e)}"
-                        )
+                        logger.error(f"Error uploading {repo.full_name} to Linkwarden: {str(e)}")
                         failed_uploads += 1
                         break
                 except Exception as e:
-                    logger.error(
-                        f"Unexpected error processing {repo.full_name}: {str(e)}"
-                    )
+                    logger.error(f"Unexpected error processing {repo.full_name}: {str(e)}")
                     failed_uploads += 1
                     break
             else:
-                logger.error(
-                    f"Max retries reached for {repo.full_name}. Moving to next repository."
-                )
+                logger.error(f"Max retries reached for {repo.full_name}. Moving to next repository.")
                 failed_uploads += 1
 
             progress.update(task, advance=1)
@@ -134,9 +115,10 @@ def run_update(config_data, collection_id):
     notify.send_notification(
         config_data,
         message=f"Successful uploads: {successful_uploads}, failed uploads: {failed_uploads}, skipped_uploads: {skipped_uploads}",
-        title="Starwarden Status"
+        title="Starwarden Status",
     )
-    
+
+
 def main():
     args = config.parse_args()
     config_data = config.load_env()
@@ -148,40 +130,30 @@ def main():
         flavor = tui.main_menu()
         if flavor == 1:
             tui.console.print("Fetching existing collections...", style="info")
-            collections = linkwarden_api.get_collections(
-                config_data["linkwarden_url"], config_data["linkwarden_token"]
-            )
+            collections = linkwarden_api.get_collections(config_data["linkwarden_url"], config_data["linkwarden_token"])
             collection_id = tui.select_collection(collections)
             if not collection_id:
                 logger.error("Failed to select a collection. Exiting.")
-                tui.console.print(
-                    "Failed to select a collection. Exiting.", style="danger"
-                )
+                tui.console.print("Failed to select a collection. Exiting.", style="danger")
                 return
             run_update(config_data, collection_id)
 
         elif flavor == 2:
             collection_name = tui.create_collection_prompt()
             logger.info(f"Creating new collection: {collection_name}")
-            tui.console.print(
-                f"Creating new collection: {collection_name}", style="info"
-            )
+            tui.console.print(f"Creating new collection: {collection_name}", style="info")
             collection = linkwarden_api.create_collection(
                 config_data["linkwarden_url"],
                 config_data["linkwarden_token"],
-                collection_name
+                collection_name,
             )
             if not collection:
                 logger.error("Failed to create a new collection. Exiting.")
-                tui.console.print(
-                    "Failed to create a new collection. Exiting.", style="danger"
-                )
+                tui.console.print("Failed to create a new collection. Exiting.", style="danger")
                 return
             collection_id = collection.get("id")
             logger.info(f"Created new collection with ID: {collection_id}")
-            tui.console.print(
-                f"Created new collection with ID: {collection_id}", style="info"
-            )
+            tui.console.print(f"Created new collection with ID: {collection_id}", style="info")
             run_update(config_data, collection_id)
         else:
             logger.info("Exiting StarWarden.")
@@ -189,6 +161,7 @@ def main():
             return
     else:
         run_update(config_data, args.id)
+
 
 if __name__ == "__main__":
     config_data = config.load_env()
@@ -199,9 +172,5 @@ if __name__ == "__main__":
         logger.exception(f"Unexpected error: {str(e)}")
         tui.console.print(f"Unexpected error: {str(e)}", style="danger")
         error_message = f"Starwarden process failed with a critical error: {e}"
-        notify.send_notification(
-            config_data,
-            message=error_message,
-            title="Starwarden Process Failure"
-        )
+        notify.send_notification(config_data, message=error_message, title="Starwarden Process Failure")
         sys.exit(1)
