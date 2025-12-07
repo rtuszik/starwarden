@@ -71,7 +71,7 @@ def select_collection(collections):
         box=box.SIMPLE_HEAD,
     )
 
-    for i, collection in enumerate(collections, 1):
+    for _i, collection in enumerate(collections, 1):
         collection_table.add_row(
             f"{collection.get('id')}",
             f"{collection.get('name')}",

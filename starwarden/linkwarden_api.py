@@ -58,14 +58,14 @@ def get_collections(linkwarden_url, linkwarden_token):
         "Content-Type": "application/json",
     }
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=30)
         response.raise_for_status()
         data = response.json()
         collections = data.get("response", [])
         logger.debug(f"Fetched collections: {json.dumps(collections, indent=2)}")
         return collections
     except requests.RequestException as e:
-        raise Exception(f"Error fetching collections from Linkwarden: {str(e)}")
+        raise Exception(f"Error fetching collections from Linkwarden: {str(e)}") from e
 
 
 def create_collection(linkwarden_url, linkwarden_token, name, description=""):
@@ -125,6 +125,7 @@ def upload_link(linkwarden_url, linkwarden_token, collection_id, repo, tags):
             url,
             headers=headers,
             json=link_data,
+            timeout=30,
         )
         # Check for 409 Conflict
         if response.status_code == 409:
