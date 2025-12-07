@@ -1,8 +1,8 @@
-from .logger import get_logger
 import apprise
 
-logger = get_logger()
+from starwarden.utils.logger import get_logger
 
+logger = get_logger()
 
 
 def send_notification(config: dict, message: str, title: str = "Starwarden Notification"):
@@ -13,7 +13,7 @@ def send_notification(config: dict, message: str, title: str = "Starwarden Notif
 
     apobj = apprise.Apprise()
 
-    for url in apprise_urls.split(','):
+    for url in apprise_urls.split(","):
         if url.strip():
             apobj.add(url.strip())
 
@@ -25,4 +25,3 @@ def send_notification(config: dict, message: str, title: str = "Starwarden Notif
         logger.error("Failed to send notification to one or more Apprise targets.")
     else:
         logger.info("Successfully sent notification.")
-

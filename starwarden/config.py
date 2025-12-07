@@ -4,18 +4,14 @@ import sys
 
 from dotenv import load_dotenv
 
-from .utils.logger import get_logger
+from starwarden.utils.logger import get_logger
 
 logger = get_logger()
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Export GitHub starred repositories as individual links to Linkwarden"
-    )
-    parser.add_argument(
-        "-id", type=int, help="Specify the collection ID to sync"
-    )
+    parser = argparse.ArgumentParser(description="Export GitHub starred repositories as individual links to Linkwarden")
+    parser.add_argument("-id", type=int, help="Specify the collection ID to sync")
     parser.add_argument(
         "-d",
         "--debug",
@@ -39,8 +35,7 @@ def load_env():
         "opt_tag_username": os.getenv("OPT_TAG_USERNAME", "false").lower() in ("true", "1"),
         "opt_tag_custom": os.getenv("OPT_TAG_CUSTOM", ""),
         "APPRISE_URLS": os.getenv("APPRISE_URLS"),
-        "DOCKERIZED": os.getenv("DOCKERIZED", "false").lower() in ("true", "1")
-
+        "DOCKERIZED": os.getenv("DOCKERIZED", "false").lower() in ("true", "1"),
     }
 
     if not all([config["github_username"], config["linkwarden_url"], config["linkwarden_token"]]):
@@ -48,4 +43,3 @@ def load_env():
         sys.exit(1)
 
     return config
-

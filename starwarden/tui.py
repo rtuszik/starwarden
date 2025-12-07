@@ -5,11 +5,9 @@ from rich.prompt import Prompt
 from rich.table import Column, Table
 from rich.theme import Theme
 
-
-theme = Theme(
-    {"info": "#74c7ec", "prompt": "#cba6f7", "warning": "#fab387", "danger": "#f38ba8"}
-)
+theme = Theme({"info": "#74c7ec", "prompt": "#cba6f7", "warning": "#fab387", "danger": "#f38ba8"})
 console = Console(theme=theme)
+
 
 def display_welcome():
     welcome_text = r"""
@@ -27,6 +25,7 @@ def display_welcome():
         style="info",
     )
 
+
 def main_menu():
     options = [
         "Update existing GitHub Stars collection",
@@ -37,16 +36,13 @@ def main_menu():
     for i, option in enumerate(options, 1):
         console.print(f"  {i}. {option}", style="info")
 
-    choice = Prompt.ask(
-        "Enter your choice", choices=[str(i) for i in range(1, len(options) + 1)]
-    )
+    choice = Prompt.ask("Enter your choice", choices=[str(i) for i in range(1, len(options) + 1)])
     return int(choice)
+
 
 def select_collection(collections):
     if collections is None or not collections:
-        console.print(
-            "No collections found or failed to fetch collections.", style="danger"
-        )
+        console.print("No collections found or failed to fetch collections.", style="danger")
         return None
 
     console.print("Available collections:", style="info")
@@ -91,6 +87,7 @@ def select_collection(collections):
         show_choices=False,
     )
     return int(choice)
+
 
 def create_collection_prompt():
     return Prompt.ask("Enter the name for the new GitHub Stars collection")
