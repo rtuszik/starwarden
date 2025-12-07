@@ -51,8 +51,7 @@ jobs:
                   fail-on-cache-miss: true
             - name: Run linting
               run: |
-                  uv run ruff check --fix
-                  uv run ruff format
+                  uv run ruff check 
 
     typecheck:
         runs-on: ubuntu-latest
