@@ -1,21 +1,11 @@
 version: 2
 updates:
-    
     - package-ecosystem: "uv"
       target-branch: "main"
       directory: "/"
       schedule:
           interval: "weekly"
       open-pull-requests-limit: 10
-
-    
-    - package-ecosystem: "pip"
-      target-branch: "main"
-      directory: "/"
-      schedule:
-          interval: "weekly"
-      open-pull-requests-limit: 10
-
 
     - package-ecosystem: "github-actions"
       directory: "/"
