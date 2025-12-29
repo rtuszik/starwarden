@@ -17,7 +17,7 @@ def send_notification(config: dict, message: str, title: str = "Starwarden Notif
         if url.strip():
             apobj.add(url.strip())
 
-    if not apobj.servers:
+    if len(apobj) == 0:
         logger.warning("No valid Apprise URLs were found after processing the APPRISE_URLS variable.")
         return
 
