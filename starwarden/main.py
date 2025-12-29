@@ -12,6 +12,28 @@ from starwarden.utils.logger import get_logger
 logger = get_logger()
 
 
+def build_tags(config_data, repo):
+    if not config_data["opt_tag"]:
+        return []
+
+    tags = []
+
+    if config_data["opt_tag_github"]:
+        tags.append({"name": "GitHub"})
+    if config_data["opt_tag_githubStars"]:
+        tags.append({"name": "GitHub Stars"})
+    if config_data["opt_tag_language"] and repo.language:
+        tags.append({"name": repo.language})
+    if config_data["opt_tag_username"]:
+        tags.append({"name": config_data["github_username"]})
+    if config_data["opt_tag_custom"]:
+        for tag in config_data["opt_tag_custom"].split(","):
+            if len(tag) > 0:
+                tags.append({"name": tag.strip()})
+
+    return tags
+
+
 def run_update(config_data, collection_id):
     logger.debug(f"Collection ID: {collection_id}")
     existing_links = set(
@@ -44,20 +66,7 @@ def run_update(config_data, collection_id):
 
             max_retries = 3
             retry_count = 0
-            tags = []
-            if config_data["opt_tag"]:
-                if config_data["opt_tag_github"]:
-                    tags.append({"name": "GitHub"})
-                if config_data["opt_tag_githubStars"]:
-                    tags.append({"name": "GitHub Stars"})
-                if config_data["opt_tag_language"] and repo.language:
-                    tags.append({"name": repo.language})
-                if config_data["opt_tag_username"]:
-                    tags.append({"name": config_data["github_username"]})
-                if config_data["opt_tag_custom"]:
-                    for tag in config_data["opt_tag_custom"].split(","):
-                        if len(tag) > 0:
-                            tags.append({"name": tag.strip()})
+            tags = build_tags(config_data, repo)
 
             while retry_count < max_retries:
                 try:
