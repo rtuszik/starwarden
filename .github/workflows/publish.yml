@@ -27,5 +27,5 @@ jobs:
         run: uv run --isolated --no-project --with dist/*.whl tests/test_smoke.py
       - name: Smoke test (source distribution)
         run: uv run --isolated --no-project --with dist/*.tar.gz tests/test_smoke.py
-      # - name: Publish
-      #   run: uv publish
+      - name: Publish
+        run: uv publish
