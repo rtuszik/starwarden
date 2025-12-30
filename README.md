@@ -14,11 +14,19 @@ StarWarden allows you to export GitHub stars to Linkwarden.
 
 ## Setup
 
+Uses [astral/uv](https://docs.astral.sh/uv/getting-started/installation/)
+
+Install:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
 1. Clone the repository
 2. Install requirements:
 
     ```bash
-    pip install -r requirements.txt
+    uv sync --locked
     ```
 
 3. Create a `.env` file with:
@@ -41,13 +49,13 @@ StarWarden allows you to export GitHub stars to Linkwarden.
 Run:
 
 ```bash
-python starwarden.py
+uv run starwarden.py
 ```
 
 To directly update an existing collection without an interactive menu, run:
 
 ```bash
-python starwarden.py -id YOUR_COLLECTION_ID
+uv run starwarden.py -id YOUR_COLLECTION_ID
 ```
 
 ## Environment Variables
