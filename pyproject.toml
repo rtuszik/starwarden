@@ -13,6 +13,9 @@ dependencies = [
     "tqdm==4.67.1",
 ]
 
+[project.scripts]
+starwarden = "starwarden.main:main"
+
 [dependency-groups]
 dev = [
     "bandit>=1.8.6",
