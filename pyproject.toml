@@ -14,7 +14,13 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["bandit>=1.8.6", "ruff>=0.12.12", "ty>=0.0.1a20", "vulture>=2.14"]
+dev = [
+    "bandit>=1.8.6",
+    "pytest>=9.0.2",
+    "ruff>=0.12.12",
+    "ty>=0.0.1a20",
+    "vulture>=2.14",
+]
 
 [build-system]
 requires = ["uv_build>=0.9.16"]
@@ -78,3 +84,10 @@ indent-style = "space"
 line-ending = "auto"
 
 docstring-code-format = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101"]
