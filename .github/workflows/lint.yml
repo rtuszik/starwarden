@@ -100,5 +100,5 @@ jobs:
                   key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
                   fail-on-cache-miss: true
             - name: Run vulture
-              run: uv run vulture --min-confidence 100 --exclude ".venv" .
+              run: uv run vulture .
 
