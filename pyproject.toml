@@ -87,7 +87,6 @@ docstring-code-format = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101"]
