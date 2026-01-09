@@ -16,7 +16,8 @@ ENV OPT_TAG_GITHUBSTARS=true
 ENV OPT_TAG_LANGUAGE=false
 ENV OPT_TAG_USERNAME=false
 ENV OPT_TAG_CUSTOM=false
-
+ENV OPT_DELETE_DUPLICATE=false
+ENV DEBUG=false
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y cron && rm -rf /var/lib/apt/lists/*

@@ -36,8 +36,13 @@ def build_tags(config_data, repo):
 
 def run_update(config_data, collection_id):
     logger.debug(f"Collection ID: {collection_id}")
+    
+    delete_duplicate = config_data.get("opt_delete_duplicate", False)
+    if delete_duplicate:
+        logger.debug("Duplicate deletion enabled.")
+    
     existing_links = set(
-        linkwarden_api.get_existing_links(config_data["linkwarden_url"], config_data["linkwarden_token"], collection_id)
+        linkwarden_api.get_existing_links(config_data["linkwarden_url"], config_data["linkwarden_token"], collection_id, delete_duplicate)
     )
     logger.info(f"Found {len(existing_links)} existing links in the collection.")
     tui.console.print(
@@ -123,7 +128,7 @@ def run_update(config_data, collection_id):
 def main():
     args = config.parse_args()
     config_data = config.load_env()
-    if args.debug:
+    if args.debug or config_data["debug"]:
         HTTPConnection.debuglevel = 1
 
     if not args.id:
