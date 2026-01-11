@@ -11,7 +11,7 @@ StarWarden allows you to export GitHub stars to Linkwarden.
 - Export GitHub stars to Linkwarden
 - Export to existing collection or create new colletion
 - Keep Linkwarden collection up-to-date with your GitHub stars using the docker image.
-
+  
 ## Setup
 
 Uses [astral/uv](https://docs.astral.sh/uv/getting-started/installation/)
@@ -42,6 +42,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
     OPT_TAG_GITHUBSTARS=true
     OPT_TAG_LANGUAGE=false
     OPT_TAG_USERNAME=false
+    OPT_DELETE_DUPLICATE=false
+    DEBUG=false
     ```
 
 ## Usage
@@ -75,6 +77,8 @@ uv run starwarden.py -id YOUR_COLLECTION_ID
 | OPT_TAG_LANGUAGE    |    false     | Tag Link with Language of repo (e.g. Python or JavaScript)                                                     |
 | OPT_TAG_USERNAME    |    false     | Tag GitHub username                                                                                            |
 | OPT_TAG_CUSTOM      |              | Add custom tags, separated by commas (e.g. tag1,tag2)                                                          |
+| OPT_DELETE_DUPLICATE|    false     | Delete existing duplicate links from Collection (COLLECTION_ID)                                                 |
+| DEBUG               |    false     | Enable/Disable debug mode                                                                                      |
 
 ## Unsupervised Updates
 
@@ -97,6 +101,8 @@ For automated, unsupervised updates, you can use Docker with the provided docker
     OPT_TAG_GITHUBSTARS=true
     OPT_TAG_LANGUAGE=false
     OPT_TAG_USERNAME=false
+    OPT_DELETE_DUPLICATE=false
+    DEBUG=false
     ```
 
 3. Use the following `docker-compose.yml` file:
