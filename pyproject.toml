@@ -18,7 +18,6 @@ starwarden = "starwarden.main:main"
 
 [dependency-groups]
 dev = [
-    "bandit>=1.8.6",
     "pytest>=9.0.2",
     "ruff>=0.12.12",
     "ty>=0.0.1a20",
