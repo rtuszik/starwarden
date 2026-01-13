@@ -10,38 +10,57 @@ logger = get_logger()
 LINK_EXISTS_GLOBALLY = object()
 
 
-def get_existing_links(linkwarden_url, linkwarden_token, collection_id):
-    url = f"{linkwarden_url.rstrip('/')}/api/v1/links"
+def get_existing_links(linkwarden_url, linkwarden_token, collection_id, delete_duplicate=False):
+    url = f"{linkwarden_url.rstrip('/')}/api/v1/search"
     headers = {
         "Authorization": f"Bearer {linkwarden_token}",
         "Content-Type": "application/json",
     }
-    cursor = 0
-    seen_links = set()
+    cursor = None
+    seen_urls = set()
+    duplicate_link_ids = []
+    total_links_processed = 0
+    
     while True:
         try:
             logger.debug(f"Fetching links from cursor {cursor} for collection {collection_id}")
+            params = {"collectionId": collection_id, "sort": 1}
+            if cursor is not None:
+                params["cursor"] = cursor
+                
             response = requests.get(
                 url,
-                params={"collectionId": collection_id, "cursor": cursor, "sort": 1},
+                params=params,
                 headers=headers,
                 timeout=30,
             )
             response.raise_for_status()
-            data = response.json()
-            links = data.get("response", [])
+            data = response.json()    
+            links = data.get("data", {}).get("links", [])
+            next_cursor = data.get("data", {}).get("nextCursor")
+            
             logger.debug(f"Fetched {len(links)} links from cursor {cursor}")
+            total_links_processed += len(links)
+            
+            for link in links:
+                link_url = link["url"]
+                link_id = link["id"]
+                
+                if link_url in seen_urls:
+                    # Found a duplicate
+                    logger.debug(f"Found duplicate link: {link_url} (ID: {link_id})")
+                    duplicate_link_ids.append(link_id)
+                else:
+                    seen_urls.add(link_url)
+                
+                yield link_url
 
-            new_links = [link["url"] for link in links if link["url"] not in seen_links]
-            if not new_links:
-                logger.info(f"No new links found from cursor {cursor}. Stopping pagination.")
+            if next_cursor is None:
+                logger.info("Reached end of pagination (no nextCursor in response)")
                 break
-
-            seen_links.update(new_links)
-            yield from new_links
-            if not links:
-                break
-            cursor = links[-1].get("id")
+            else:
+                cursor = next_cursor
+                logger.debug(f"Advancing to next cursor: {cursor}")
 
         except requests.RequestException as e:
             logger.error(f"Error fetching links from cursor {cursor}: {str(e)}")
@@ -49,6 +68,26 @@ def get_existing_links(linkwarden_url, linkwarden_token, collection_id):
                 logger.error(f"Response status code: {e.response.status_code}")
                 logger.error(f"Response content: {e.response.text}")
             break
+    
+    # Handle duplicate deletion if requested
+    if delete_duplicate and duplicate_link_ids:
+        logger.info(f"Found {len(duplicate_link_ids)} duplicate links to delete: {duplicate_link_ids}")
+        
+        batch_size = 100
+        total_deleted = 0
+        
+        for i in range(0, len(duplicate_link_ids), batch_size):
+            batch = duplicate_link_ids[i:i + batch_size]
+            logger.debug(f"Deleting batch {i//batch_size + 1}: {len(batch)} links")
+            
+            deleted_count = delete_links(linkwarden_url, linkwarden_token, batch)
+            if deleted_count is not None:
+                total_deleted += deleted_count
+            else:
+                logger.error(f"Failed to delete batch {i//batch_size + 1}")
+        
+        logger.info(f"Successfully deleted {total_deleted} duplicate links out of {len(duplicate_link_ids)} found")
+        logger.info(f"Processed {total_links_processed} total links in collection {collection_id}")
 
 
 def get_collections(linkwarden_url, linkwarden_token):
@@ -160,4 +199,55 @@ def upload_link(linkwarden_url, linkwarden_token, collection_id, repo, tags):
             logger.error(f"Response status code: {e.response.status_code}")
             logger.error(f"Response content: {e.response.text}")
 
+        return None
+
+
+def delete_links(linkwarden_url, linkwarden_token, link_ids):
+    url = f"{linkwarden_url.rstrip('/')}/api/v1/links"
+    headers = {
+        "Authorization": f"Bearer {linkwarden_token}",
+        "Content-Type": "application/json",
+    }
+    
+    request_data = {
+        "linkIds": link_ids
+    }
+    
+    logger.debug(f"Attempting to delete {len(link_ids)} links: {link_ids}")
+    
+    try:
+        response = requests.delete(
+            url,
+            headers=headers,
+            json=request_data,
+            timeout=30,
+        )
+        
+        logger.debug(f"Delete response status code: {response.status_code}")
+        logger.debug(f"Delete response content: {response.text}")
+        
+        if response.status_code == 401:
+            logger.error("Unauthorized: Invalid or expired token for delete operation")
+            return None
+        
+        response.raise_for_status()
+        response_json = response.json()
+        
+        deleted_count = response_json.get("response", {}).get("count", 0)
+        
+        logger.info(f"Successfully deleted {deleted_count} links out of {len(link_ids)} requested")
+        
+        if deleted_count != len(link_ids):
+            logger.warning(f"Expected to delete {len(link_ids)} links, but only {deleted_count} were deleted")
+        
+        return deleted_count
+        
+    except Timeout:
+        logger.error("Request timed out while deleting links")
+        return None
+    except requests.RequestException as e:
+        logger.error(f"Error deleting links from Linkwarden: {str(e)}")
+        if hasattr(e, "response") and e.response is not None:
+            logger.error(f"Response status code: {e.response.status_code}")
+            logger.error(f"Response content: {e.response.text}")
         return None
