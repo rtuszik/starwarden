@@ -41,19 +41,21 @@ def get_existing_links(linkwarden_url, linkwarden_token, collection_id, delete_d
             
             logger.debug(f"Fetched {len(links)} links from cursor {cursor}")
             total_links_processed += len(links)
-            
+
             for link in links:
                 link_url = link["url"]
                 link_id = link["id"]
-                
+
                 if link_url in seen_urls:
                     # Found a duplicate
                     logger.debug(f"Found duplicate link: {link_url} (ID: {link_id})")
                     duplicate_link_ids.append(link_id)
+                    # Do not yield duplicates since they are queued for deletion
+                    continue
                 else:
                     seen_urls.add(link_url)
-                
-                yield link_url
+                    # Only yield URLs that are not marked as duplicates
+                    yield link_url
 
             if next_cursor is None:
                 logger.info("Reached end of pagination (no nextCursor in response)")
