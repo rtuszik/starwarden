@@ -5,7 +5,7 @@ description = "Sync GitHub Stars to Linkwarden"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "apprise==1.9.6",
+    "apprise==1.9.7",
     "pygithub==2.8.1",
     "python-dotenv==1.2.1",
     "requests==2.32.4",
