@@ -10,7 +10,7 @@ dependencies = [
     "python-dotenv==1.2.1",
     "requests==2.32.4",
     "rich==14.2.0",
-    "tqdm==4.67.1",
+    "tqdm==4.67.3",
 ]
 
 [project.scripts]
