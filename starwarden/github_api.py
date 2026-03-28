@@ -31,7 +31,7 @@ def get_starred_repos(github_token, github_username):
                 if e.status == 403 and "rate limit" in str(e).lower():
                     handle_rate_limit(e)
                 else:
-                    logger.error(f"GitHub API error: {str(e)}")
+                    logger.error(f"GitHub API error: {e!s}")
                     raise
 
 
