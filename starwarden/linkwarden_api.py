@@ -44,7 +44,7 @@ def get_existing_links(linkwarden_url, linkwarden_token, collection_id):
             cursor = links[-1].get("id")
 
         except requests.RequestException as e:
-            logger.error(f"Error fetching links from cursor {cursor}: {str(e)}")
+            logger.error(f"Error fetching links from cursor {cursor}: {e!s}")
             if hasattr(e, "response") and e.response is not None:
                 logger.error(f"Response status code: {e.response.status_code}")
                 logger.error(f"Response content: {e.response.text}")
@@ -65,7 +65,7 @@ def get_collections(linkwarden_url, linkwarden_token):
         logger.debug(f"Fetched collections: {json.dumps(collections, indent=2)}")
         return collections
     except requests.RequestException as e:
-        raise Exception(f"Error fetching collections from Linkwarden: {str(e)}") from e
+        raise Exception(f"Error fetching collections from Linkwarden: {e!s}") from e
 
 
 def create_collection(linkwarden_url, linkwarden_token, name, description=""):
@@ -93,7 +93,7 @@ def create_collection(linkwarden_url, linkwarden_token, name, description=""):
         logger.error("Request timed out while creating new collection in Linkwarden")
         return None
     except requests.RequestException as e:
-        logger.error(f"Error creating new collection in Linkwarden: {str(e)}")
+        logger.error(f"Error creating new collection in Linkwarden: {e!s}")
         if hasattr(e, "response") and e.response is not None:
             logger.error(f"Response status code: {e.response.status_code}")
             logger.error(f"Response content: {e.response.text}")
@@ -155,7 +155,7 @@ def upload_link(linkwarden_url, linkwarden_token, collection_id, repo, tags):
             return None
 
     except requests.RequestException as e:
-        logger.error(f"Error uploading {repo.full_name} to Linkwarden: {str(e)}")
+        logger.error(f"Error uploading {repo.full_name} to Linkwarden: {e!s}")
         if hasattr(e, "response") and e.response is not None:
             logger.error(f"Response status code: {e.response.status_code}")
             logger.error(f"Response content: {e.response.text}")

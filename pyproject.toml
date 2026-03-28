@@ -5,12 +5,12 @@ description = "Sync GitHub Stars to Linkwarden"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "apprise==1.9.6",
-    "pygithub==2.8.1",
-    "python-dotenv==1.2.1",
-    "requests==2.32.4",
-    "rich==14.2.0",
-    "tqdm==4.67.3",
+  "apprise==1.9.6",
+  "pygithub==2.8.1",
+  "python-dotenv==1.2.1",
+  "requests==2.32.4",
+  "rich==14.2.0",
+  "tqdm==4.67.3",
 ]
 
 [project.scripts]
@@ -18,14 +18,15 @@ starwarden = "starwarden.main:main"
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0.2",
-    "ruff>=0.12.12",
-    "ty>=0.0.1a20",
-    "vulture>=2.14",
+  "pytest>=9.0.2",
+  "pytest-cov>=7.0.0",
+  "ruff>=0.12.12",
+  "ty>=0.0.1a20",
+  "vulture>=2.14"
 ]
 
 [build-system]
-requires = ["uv_build>=0.9.16"]
+requires = ["uv_build>=0.10.9,<0.11.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
@@ -36,47 +37,26 @@ module-root = ""
 indent-width = 4
 line-length = 120
 
-
 [tool.ruff.lint]
 ignore = [
-    "ANN",     # flake8-annotations
-    "COM",     # flake8-commas
-    "C90",     # mccabe complexity
-    "DJ",      # django
-    "EXE",     # flake8-executable
-    "BLE",     # blind except
-    "PTH",     # flake8-pathlib
-    "T10",     # debugger
-    "TID",     # flake8-tidy-imports
-    "D100",
-    "D101",
-    "D102",
-    "D103",
-    "D104",
-    "D105",
-    "D106",
-    "D107",
-    "D101",
-    "D107",    # missing docstring in public module
-    "D102",    # missing docstring in public class
-    "D104",    # missing docstring in public package
-    "D213",
-    "D203",
-    "D400",
-    "D415",
-    "G004",
-    "PLR2004",
-    "E501",    # line too long
-    "TRY",
-    "SIM105",  # faster without contextlib
+  "ANN",  # flake8-annotations
+  "COM",  # flake8-commas
+  "DJ",  # django
+  "EXE",  # flake8-executable
+  "BLE",  # blind except
+  "PTH",  # flake8-pathlib
+  "T10",  # debugger
+  "TID",  # flake8-tidy-imports
+  "D",
+  "G004",
+  "PLR2004",
+  "E501",  # line too long
+  "TRY",
+  "SIM105",  # faster without contextlib
 ]
-
-extend-select = ["B", "S", "SIM", "T20", "C901"]
-
-
+extend-select = ["B", "S", "SIM", "T20", "C90", "RUF"]
 fixable = ["ALL"]
 unfixable = []
-
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
@@ -84,7 +64,6 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 quote-style = "double"
 indent-style = "space"
 line-ending = "auto"
-
 docstring-code-format = false
 
 [tool.pytest.ini_options]
@@ -94,5 +73,5 @@ testpaths = ["tests"]
 "tests/**/*.py" = ["S101"]
 
 [tool.vulture]
-min_confidence = 100 
+min_confidence = 100
 exclude = [".venv", "tests"]
