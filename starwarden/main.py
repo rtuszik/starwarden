@@ -123,6 +123,16 @@ def run_update(config_data, collection_id):
 def main():
     args = config.parse_args()
     config_data = config.load_env()
+
+    missing = config.missing_required(config_data)
+    if missing:
+        if config_data["DOCKERIZED"]:
+            config.exit_missing(missing)
+        config_data = tui.prompt_missing_config(config_data)
+        missing = config.missing_required(config_data)
+        if missing:
+            config.exit_missing(missing)
+
     if args.debug:
         HTTPConnection.debuglevel = 1
 

@@ -8,6 +8,8 @@ from starwarden.utils.logger import get_logger
 
 logger = get_logger()
 
+REQUIRED_KEYS = ["github_username", "linkwarden_url", "linkwarden_token"]
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Export GitHub starred repositories as individual links to Linkwarden")
@@ -23,7 +25,7 @@ def parse_args():
 
 def load_env():
     load_dotenv()
-    config = {
+    return {
         "github_token": os.getenv("GITHUB_TOKEN"),
         "github_username": os.getenv("GITHUB_USERNAME"),
         "linkwarden_url": os.getenv("LINKWARDEN_URL"),
@@ -38,8 +40,11 @@ def load_env():
         "DOCKERIZED": os.getenv("DOCKERIZED", "false").lower() in ("true", "1"),
     }
 
-    if not all([config["github_username"], config["linkwarden_url"], config["linkwarden_token"]]):
-        logger.error("Missing required environment variables. Please check your .env file.")
-        sys.exit(1)
 
-    return config
+def missing_required(config):
+    return [k for k in REQUIRED_KEYS if not config.get(k)]
+
+
+def exit_missing(missing):
+    logger.error(f"Missing required configuration: {', '.join(missing)}")
+    sys.exit(1)

@@ -91,3 +91,25 @@ def select_collection(collections):
 
 def create_collection_prompt():
     return Prompt.ask("Enter the name for the new GitHub Stars collection")
+
+
+def prompt_missing_config(config):
+    console.print("Some required configuration is missing.", style="warning")
+    console.print("Please enter the values below (or set them in a .env file):\n", style="info")
+
+    required_prompts = [
+        ("github_username", "GitHub Username", False),
+        ("linkwarden_url", "Linkwarden URL (e.g. https://your-instance.com)", False),
+        ("linkwarden_token", "Linkwarden API Token", True),
+    ]
+
+    for key, label, is_password in required_prompts:
+        if not config.get(key):
+            config[key] = Prompt.ask(label, password=is_password)
+
+    if not config.get("github_token"):
+        token = Prompt.ask("GitHub Token [dim](optional — press Enter to skip)[/dim]", default="", password=True)
+        if token:
+            config["github_token"] = token
+
+    return config
