@@ -8,7 +8,7 @@ dependencies = [
     "apprise==1.9.6",
     "pygithub==2.8.1",
     "python-dotenv==1.2.2",
-    "requests==2.32.4",
+    "requests==2.33.0",
     "rich==15.0.0",
     "tqdm==4.67.3",
 ]
