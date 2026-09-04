@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.12.7-trixie-slim
+FROM ghcr.io/astral-sh/uv:0.12.10-trixie-slim
 
 
 ENV PYTHONUNBUFFERED=1
