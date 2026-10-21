@@ -1,4 +1,7 @@
-from starwarden.main import build_tags
+from unittest.mock import patch
+
+from starwarden.linkwarden_api import ExistingLinksError
+from starwarden.main import build_tags, run_update
 
 
 class MockRepo:
@@ -47,3 +50,23 @@ class TestBuildTags:
             {"name": "tag1"},
             {"name": "tag2"},
         ]
+
+
+class TestRunUpdate:
+    def test_skips_run_when_existing_links_cannot_be_read(self):
+        """No GitHub fetch and no upload when the existing links are incomplete."""
+        config = {"linkwarden_url": "https://lw.example.com", "linkwarden_token": "token"}
+
+        def failing(*args, **kwargs):
+            yield "https://a.com"
+            raise ExistingLinksError("Could not fetch existing links from cursor 1")
+
+        with (
+            patch("starwarden.main.linkwarden_api.get_existing_links", side_effect=failing),
+            patch("starwarden.main.github_api.get_total_starred_repos") as total,
+            patch("starwarden.main.linkwarden_api.upload_link") as upload,
+        ):
+            run_update(config, 1)
+
+        total.assert_not_called()
+        upload.assert_not_called()
