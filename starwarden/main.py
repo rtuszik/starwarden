@@ -36,9 +36,18 @@ def build_tags(config_data, repo):
 
 def run_update(config_data, collection_id):
     logger.debug(f"Collection ID: {collection_id}")
-    existing_links = set(
-        linkwarden_api.get_existing_links(config_data["linkwarden_url"], config_data["linkwarden_token"], collection_id)
-    )
+    try:
+        existing_links = set(
+            linkwarden_api.get_existing_links(
+                config_data["linkwarden_url"], config_data["linkwarden_token"], collection_id
+            )
+        )
+    except linkwarden_api.ExistingLinksError as e:
+        # Uploading against an incomplete list would duplicate every link that
+        # is missing from it. Skip this run; the next one starts from scratch.
+        logger.error(f"{e}. Skipping this run to avoid creating duplicates.")
+        tui.console.print(f"{e}. Skipping this run to avoid creating duplicates.", style="danger")
+        return
     logger.info(f"Found {len(existing_links)} existing links in the collection.")
     tui.console.print(
         f"Found {len(existing_links)} existing links in the collection.",
