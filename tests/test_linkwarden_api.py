@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from starwarden.linkwarden_api import LINK_EXISTS_GLOBALLY, get_existing_links, upload_link
+from starwarden.linkwarden_api import LINK_EXISTS_GLOBALLY, ExistingLinksError, get_existing_links, upload_link
 
 
 @dataclass
@@ -141,6 +141,7 @@ class TestGetExistingLinks:
         for data in [
             {"response": [{"id": 1, "url": "https://a.com"}, {"id": 2, "url": "https://b.com"}]},
             {"response": [{"id": 3, "url": "https://a.com"}, {"id": 4, "url": "https://b.com"}]},
+            {"response": []},
         ]:
             resp = MagicMock()
             resp.json.return_value = data
@@ -150,3 +151,43 @@ class TestGetExistingLinks:
         urls = list(get_existing_links("https://lw.example.com", "token", 1))
 
         assert urls == ["https://a.com", "https://b.com"]
+
+    def test_get_existing_links_does_not_stop_on_page_of_duplicates(self, mock_get):
+        """A page made up entirely of already-seen URLs must not end pagination.
+
+        Regression: stopping there hid every link after it, so those links were
+        uploaded again on every run and the collection filled with duplicates.
+        """
+        responses = []
+        for data in [
+            {"response": [{"id": 1, "url": "https://a.com"}, {"id": 2, "url": "https://b.com"}]},
+            {"response": [{"id": 3, "url": "https://a.com"}, {"id": 4, "url": "https://b.com"}]},
+            {"response": [{"id": 5, "url": "https://c.com"}]},
+            {"response": []},
+        ]:
+            resp = MagicMock()
+            resp.json.return_value = data
+            responses.append(resp)
+        mock_get.side_effect = responses
+
+        urls = list(get_existing_links("https://lw.example.com", "token", 1))
+
+        assert urls == ["https://a.com", "https://b.com", "https://c.com"]
+
+    def test_get_existing_links_raises_on_request_error(self, mock_get):
+        """A failed page must raise instead of returning a partial list."""
+        first = MagicMock()
+        first.json.return_value = {"response": [{"id": 1, "url": "https://a.com"}]}
+        mock_get.side_effect = [first, requests.exceptions.Timeout("timed out")]
+
+        with pytest.raises(ExistingLinksError):
+            list(get_existing_links("https://lw.example.com", "token", 1))
+
+    def test_get_existing_links_raises_when_cursor_does_not_advance(self, mock_get):
+        """A cursor that repeats would loop forever; it must raise instead."""
+        resp = MagicMock()
+        resp.json.return_value = {"response": [{"url": "https://a.com"}]}
+        mock_get.return_value = resp
+
+        with pytest.raises(ExistingLinksError):
+            list(get_existing_links("https://lw.example.com", "token", 1))

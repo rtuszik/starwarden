@@ -10,6 +10,14 @@ logger = get_logger()
 LINK_EXISTS_GLOBALLY = object()
 
 
+class ExistingLinksError(Exception):
+    """The existing links could not be read completely.
+
+    Raised instead of returning a partial list: every URL missing from the
+    list would be uploaded again, creating a duplicate on each run.
+    """
+
+
 def get_existing_links(linkwarden_url, linkwarden_token, collection_id):
     url = f"{linkwarden_url.rstrip('/')}/api/v1/links"
     headers = {
@@ -29,26 +37,30 @@ def get_existing_links(linkwarden_url, linkwarden_token, collection_id):
             )
             response.raise_for_status()
             data = response.json()
-            links = data.get("response", [])
-            logger.debug(f"Fetched {len(links)} links from cursor {cursor}")
-
-            new_links = [link["url"] for link in links if link["url"] not in seen_links]
-            if not new_links:
-                logger.info(f"No new links found from cursor {cursor}. Stopping pagination.")
-                break
-
-            seen_links.update(new_links)
-            yield from new_links
-            if not links:
-                break
-            cursor = links[-1].get("id")
-
-        except requests.RequestException as e:
+        except (requests.RequestException, ValueError) as e:
             logger.error(f"Error fetching links from cursor {cursor}: {str(e)}")
-            if hasattr(e, "response") and e.response is not None:
+            if getattr(e, "response", None) is not None:
                 logger.error(f"Response status code: {e.response.status_code}")
                 logger.error(f"Response content: {e.response.text}")
+            raise ExistingLinksError(f"Could not fetch existing links from cursor {cursor}") from e
+
+        links = data.get("response", [])
+        logger.debug(f"Fetched {len(links)} links from cursor {cursor}")
+
+        # Only an empty page ends the collection. A page made up entirely of
+        # URLs already seen (duplicates) is NOT the end: stopping there hides
+        # every link after it, and those get uploaded again on the next run.
+        if not links:
             break
+
+        new_links = [link["url"] for link in links if link["url"] not in seen_links]
+        seen_links.update(new_links)
+        yield from new_links
+
+        next_cursor = links[-1].get("id")
+        if next_cursor is None or next_cursor == cursor:
+            raise ExistingLinksError(f"Pagination did not advance past cursor {cursor}")
+        cursor = next_cursor
 
 
 def get_collections(linkwarden_url, linkwarden_token):
