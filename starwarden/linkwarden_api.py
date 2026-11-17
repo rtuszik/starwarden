@@ -1,7 +1,9 @@
 import json
 
 import requests
+from requests.adapters import HTTPAdapter
 from requests.exceptions import Timeout
+from urllib3.util.retry import Retry
 
 from starwarden.utils.logger import get_logger
 
@@ -11,11 +13,15 @@ LINK_EXISTS_GLOBALLY = object()
 
 
 class ExistingLinksError(Exception):
-    """The existing links could not be read completely.
+    """Existing links could not be read completely."""
 
-    Raised instead of returning a partial list: every URL missing from the
-    list would be uploaded again, creating a duplicate on each run.
-    """
+
+def _retrying_session():
+    session = requests.Session()
+    retry = Retry(total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504], allowed_methods=["GET"])
+    session.mount("http://", HTTPAdapter(max_retries=retry))
+    session.mount("https://", HTTPAdapter(max_retries=retry))
+    return session
 
 
 def get_existing_links(linkwarden_url, linkwarden_token, collection_id):
@@ -26,41 +32,47 @@ def get_existing_links(linkwarden_url, linkwarden_token, collection_id):
     }
     cursor = 0
     seen_links = set()
-    while True:
-        try:
-            logger.debug(f"Fetching links from cursor {cursor} for collection {collection_id}")
-            response = requests.get(
-                url,
-                params={"collectionId": collection_id, "cursor": cursor, "sort": 1},
-                headers=headers,
-                timeout=30,
-            )
-            response.raise_for_status()
-            data = response.json()
-        except (requests.RequestException, ValueError) as e:
-            logger.error(f"Error fetching links from cursor {cursor}: {str(e)}")
-            if getattr(e, "response", None) is not None:
-                logger.error(f"Response status code: {e.response.status_code}")
-                logger.error(f"Response content: {e.response.text}")
-            raise ExistingLinksError(f"Could not fetch existing links from cursor {cursor}") from e
+    with _retrying_session() as session:
+        while True:
+            try:
+                logger.debug(f"Fetching links from cursor {cursor} for collection {collection_id}")
+                response = session.get(
+                    url,
+                    params={"collectionId": collection_id, "cursor": cursor, "sort": 1},
+                    headers=headers,
+                    timeout=30,
+                )
+                response.raise_for_status()
+                data = response.json()
+            except requests.RequestException as e:
+                logger.error(f"Error fetching links from cursor {cursor}: {e!s}")
+                if e.response is not None:
+                    logger.error(f"Response status code: {e.response.status_code}")
+                    logger.error(f"Response content: {e.response.text}")
+                raise ExistingLinksError(f"Could not fetch existing links from cursor {cursor}") from e
+            except ValueError as e:
+                logger.error(f"Invalid JSON from cursor {cursor}: {e!s}")
+                raise ExistingLinksError(f"Invalid response from cursor {cursor}") from e
 
-        links = data.get("response", [])
-        logger.debug(f"Fetched {len(links)} links from cursor {cursor}")
+            links = data.get("response") if isinstance(data, dict) else None
+            if not isinstance(links, list) or not all(isinstance(link, dict) and "url" in link for link in links):
+                raise ExistingLinksError(f"Unexpected response shape from cursor {cursor}")
+            logger.debug(f"Fetched {len(links)} links from cursor {cursor}")
 
-        # Only an empty page ends the collection. A page made up entirely of
-        # URLs already seen (duplicates) is NOT the end: stopping there hides
-        # every link after it, and those get uploaded again on the next run.
-        if not links:
-            break
+            # empty page = end; duplicate-only page != end
+            if not links:
+                break
 
-        new_links = [link["url"] for link in links if link["url"] not in seen_links]
-        seen_links.update(new_links)
-        yield from new_links
+            for link in links:
+                if link["url"] not in seen_links:
+                    seen_links.add(link["url"])
+                    yield link["url"]
 
-        next_cursor = links[-1].get("id")
-        if next_cursor is None or next_cursor == cursor:
-            raise ExistingLinksError(f"Pagination did not advance past cursor {cursor}")
-        cursor = next_cursor
+            # sort=1 is id asc, so cursor must grow
+            next_cursor = links[-1].get("id")
+            if not isinstance(next_cursor, int) or next_cursor <= cursor:
+                raise ExistingLinksError(f"Pagination did not advance past cursor {cursor}")
+            cursor = next_cursor
 
 
 def get_collections(linkwarden_url, linkwarden_token):
@@ -77,7 +89,7 @@ def get_collections(linkwarden_url, linkwarden_token):
         logger.debug(f"Fetched collections: {json.dumps(collections, indent=2)}")
         return collections
     except requests.RequestException as e:
-        raise Exception(f"Error fetching collections from Linkwarden: {str(e)}") from e
+        raise Exception(f"Error fetching collections from Linkwarden: {e!s}") from e
 
 
 def create_collection(linkwarden_url, linkwarden_token, name, description=""):
@@ -105,7 +117,7 @@ def create_collection(linkwarden_url, linkwarden_token, name, description=""):
         logger.error("Request timed out while creating new collection in Linkwarden")
         return None
     except requests.RequestException as e:
-        logger.error(f"Error creating new collection in Linkwarden: {str(e)}")
+        logger.error(f"Error creating new collection in Linkwarden: {e!s}")
         if hasattr(e, "response") and e.response is not None:
             logger.error(f"Response status code: {e.response.status_code}")
             logger.error(f"Response content: {e.response.text}")
@@ -167,7 +179,7 @@ def upload_link(linkwarden_url, linkwarden_token, collection_id, repo, tags):
             return None
 
     except requests.RequestException as e:
-        logger.error(f"Error uploading {repo.full_name} to Linkwarden: {str(e)}")
+        logger.error(f"Error uploading {repo.full_name} to Linkwarden: {e!s}")
         if hasattr(e, "response") and e.response is not None:
             logger.error(f"Response status code: {e.response.status_code}")
             logger.error(f"Response content: {e.response.text}")

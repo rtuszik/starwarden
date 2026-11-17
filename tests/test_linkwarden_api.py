@@ -27,9 +27,11 @@ def mock_post():
 
 @pytest.fixture
 def mock_get():
-    """Fixture providing a mocked requests.get."""
-    with patch("starwarden.linkwarden_api.requests.get") as mock:
-        yield mock
+    """Fixture providing a mocked Session.get."""
+    with patch("starwarden.linkwarden_api.requests.Session") as session_cls:
+        session = session_cls.return_value
+        session.__enter__.return_value = session
+        yield session.get
 
 
 class TestUploadLink:
@@ -153,11 +155,7 @@ class TestGetExistingLinks:
         assert urls == ["https://a.com", "https://b.com"]
 
     def test_get_existing_links_does_not_stop_on_page_of_duplicates(self, mock_get):
-        """A page made up entirely of already-seen URLs must not end pagination.
-
-        Regression: stopping there hid every link after it, so those links were
-        uploaded again on every run and the collection filled with duplicates.
-        """
+        """A page of already-seen URLs must not end pagination."""
         responses = []
         for data in [
             {"response": [{"id": 1, "url": "https://a.com"}, {"id": 2, "url": "https://b.com"}]},
@@ -174,20 +172,73 @@ class TestGetExistingLinks:
 
         assert urls == ["https://a.com", "https://b.com", "https://c.com"]
 
+    def test_get_existing_links_yields_url_once_within_page(self, mock_get):
+        """A URL repeated on one page should be yielded once."""
+        mock_get.side_effect = _pages(
+            {"response": [{"id": 1, "url": "https://a.com"}, {"id": 2, "url": "https://a.com"}]},
+            {"response": []},
+        )
+
+        assert list(get_existing_links("https://lw.example.com", "token", 1)) == ["https://a.com"]
+
     def test_get_existing_links_raises_on_request_error(self, mock_get):
         """A failed page must raise instead of returning a partial list."""
-        first = MagicMock()
-        first.json.return_value = {"response": [{"id": 1, "url": "https://a.com"}]}
-        mock_get.side_effect = [first, requests.exceptions.Timeout("timed out")]
+        mock_get.side_effect = [*_pages({"response": [{"id": 1, "url": "https://a.com"}]}), requests.Timeout("timeout")]
 
         with pytest.raises(ExistingLinksError):
             list(get_existing_links("https://lw.example.com", "token", 1))
 
-    def test_get_existing_links_raises_when_cursor_does_not_advance(self, mock_get):
-        """A cursor that repeats would loop forever; it must raise instead."""
+    def test_get_existing_links_raises_on_invalid_json(self, mock_get):
+        """An unparsable body must raise."""
         resp = MagicMock()
-        resp.json.return_value = {"response": [{"url": "https://a.com"}]}
+        resp.json.side_effect = ValueError("bad json")
         mock_get.return_value = resp
 
         with pytest.raises(ExistingLinksError):
             list(get_existing_links("https://lw.example.com", "token", 1))
+
+    @pytest.mark.parametrize(
+        "body",
+        [{}, {"response": None}, {"response": "msg"}, [1, 2], {"response": [{"id": 1}]}],
+        ids=["no-response", "null", "string", "list-body", "missing-url"],
+    )
+    def test_get_existing_links_raises_on_unexpected_shape(self, mock_get, body):
+        """A body without a list of links must raise, not count as an empty page."""
+        mock_get.side_effect = _pages(body)
+
+        with pytest.raises(ExistingLinksError):
+            list(get_existing_links("https://lw.example.com", "token", 1))
+
+    @pytest.mark.parametrize(
+        "last_link",
+        [{"url": "https://b.com"}, {"id": 10, "url": "https://b.com"}, {"id": 5, "url": "https://b.com"}],
+        ids=["missing-id", "same-id", "lower-id"],
+    )
+    def test_get_existing_links_raises_when_cursor_does_not_advance(self, mock_get, last_link):
+        """A cursor that does not grow would loop forever; it must raise instead."""
+        mock_get.side_effect = _pages({"response": [{"id": 10, "url": "https://a.com"}]}, {"response": [last_link]})
+
+        with pytest.raises(ExistingLinksError):
+            list(get_existing_links("https://lw.example.com", "token", 1))
+
+    def test_get_existing_links_mounts_retry_adapter(self):
+        """Page requests should retry transient server errors."""
+        with patch("starwarden.linkwarden_api.requests.Session") as session_cls:
+            session = session_cls.return_value
+            session.__enter__.return_value = session
+            session.get.side_effect = _pages({"response": []})
+
+            list(get_existing_links("https://lw.example.com", "token", 1))
+
+        adapter = session.mount.call_args_list[-1].args[1]
+        assert adapter.max_retries.total == 3
+        assert 502 in adapter.max_retries.status_forcelist
+
+
+def _pages(*bodies):
+    responses = []
+    for body in bodies:
+        resp = MagicMock()
+        resp.json.return_value = body
+        responses.append(resp)
+    return responses
