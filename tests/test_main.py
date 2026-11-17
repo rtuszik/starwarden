@@ -65,8 +65,11 @@ class TestRunUpdate:
             patch("starwarden.main.linkwarden_api.get_existing_links", side_effect=failing),
             patch("starwarden.main.github_api.get_total_starred_repos") as total,
             patch("starwarden.main.linkwarden_api.upload_link") as upload,
+            patch("starwarden.main.notify.send_notification") as notify,
         ):
             run_update(config, 1)
 
         total.assert_not_called()
         upload.assert_not_called()
+        notify.assert_called_once()
+        assert notify.call_args.kwargs["title"] == "Starwarden Run Skipped"

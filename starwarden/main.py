@@ -43,10 +43,11 @@ def run_update(config_data, collection_id):
             )
         )
     except linkwarden_api.ExistingLinksError as e:
-        # Uploading against an incomplete list would duplicate every link that
-        # is missing from it. Skip this run; the next one starts from scratch.
-        logger.error(f"{e}. Skipping this run to avoid creating duplicates.")
-        tui.console.print(f"{e}. Skipping this run to avoid creating duplicates.", style="danger")
+        # incomplete list would re-upload missing links
+        message = f"{e}. Skipping this run to avoid creating duplicates."
+        logger.error(message)
+        tui.console.print(message, style="danger")
+        notify.send_notification(config_data, message=message, title="Starwarden Run Skipped")
         return
     logger.info(f"Found {len(existing_links)} existing links in the collection.")
     tui.console.print(
@@ -100,11 +101,11 @@ def run_update(config_data, collection_id):
                         github_api.handle_rate_limit(e, retry_after)
                         retry_count += 1
                     else:
-                        logger.error(f"Error uploading {repo.full_name} to Linkwarden: {str(e)}")
+                        logger.error(f"Error uploading {repo.full_name} to Linkwarden: {e!s}")
                         failed_uploads += 1
                         break
                 except Exception as e:
-                    logger.error(f"Unexpected error processing {repo.full_name}: {str(e)}")
+                    logger.error(f"Unexpected error processing {repo.full_name}: {e!s}")
                     failed_uploads += 1
                     break
             else:
@@ -177,8 +178,8 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         tui.console.print_exception(show_locals=True)
-        logger.exception(f"Unexpected error: {str(e)}")
-        tui.console.print(f"Unexpected error: {str(e)}", style="danger")
+        logger.exception(f"Unexpected error: {e!s}")
+        tui.console.print(f"Unexpected error: {e!s}", style="danger")
         error_message = f"Starwarden process failed with a critical error: {e}"
         notify.send_notification(config_data, message=error_message, title="Starwarden Process Failure")
         sys.exit(1)
