@@ -29,7 +29,7 @@ jobs:
               with:
                   images: ${{ env.DOCKER_IMAGE }}
                   tags: |
-                      type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+                      type=raw,value=latest,enable=${{ github.event_name == 'release' || github.ref == 'refs/heads/main' }}
                       type=semver,pattern={{version}},enable=${{ github.event_name == 'release' }}
                       type=semver,pattern={{major}}.{{minor}},enable=${{ github.event_name == 'release' }}
                       type=ref,event=branch
