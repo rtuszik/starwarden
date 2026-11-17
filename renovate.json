@@ -7,5 +7,27 @@
         ":pinDevDependencies",
         "abandonments:recommended",
         ":enablePreCommit"
+    ],
+    "vulnerabilityAlerts": {
+        "groupName": "python security fixes"
+    },
+    "packageRules": [
+        {
+            "groupName": "github actions (non-major)",
+            "matchManagers": ["github-actions"],
+            "matchUpdateTypes": ["minor", "patch", "digest", "pinDigest"]
+        },
+        {
+            "groupName": "uv",
+            "matchPackageNames": ["astral-sh/uv", "ghcr.io/astral-sh/uv", "astral-sh/setup-uv", "uv_build"]
+        },
+        {
+            "groupName": "python",
+            "matchPackageNames": ["python", "actions/setup-python"]
+        },
+        {
+            "groupName": "docker build actions",
+            "matchPackageNames": ["docker/**"]
+        }
     ]
 }
