@@ -2,7 +2,7 @@ import argparse
 import os
 import sys
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 from starwarden.utils.logger import get_logger
 
@@ -22,7 +22,7 @@ def parse_args():
 
 
 def load_env():
-    load_dotenv()
+    load_dotenv(find_dotenv(usecwd=True))
     config = {
         "github_token": os.getenv("GITHUB_TOKEN"),
         "github_username": os.getenv("GITHUB_USERNAME"),

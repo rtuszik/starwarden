@@ -12,15 +12,56 @@ StarWarden allows you to export GitHub stars to Linkwarden.
 - Export to existing collection or create new colletion
 - Keep Linkwarden collection up-to-date with your GitHub stars using the docker image.
 
-## Setup
+## Installation
 
-Uses [astral/uv](https://docs.astral.sh/uv/getting-started/installation/)
+StarWarden requires Python 3.13 or later.
 
-Install:
+### From PyPI
+
+Install with [uv](https://docs.astral.sh/uv/getting-started/installation/):
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+uv tool install starwarden
 ```
+
+Or with [mise](https://mise.jdx.dev/):
+
+```bash
+mise use -g pypi:starwarden
+```
+
+Set the required environment variables in your shell:
+
+```bash
+export GITHUB_TOKEN=your_github_token
+export GITHUB_USERNAME=your_github_username
+export LINKWARDEN_URL=your_linkwarden_instance_url
+export LINKWARDEN_TOKEN=your_linkwarden_api_token
+```
+
+You can also put these variables in a `.env` file in the directory where you run `starwarden`. See [Environment Variables](#environment-variables) for all options.
+
+Run:
+
+```bash
+starwarden
+```
+
+To update an existing collection without the interactive menu:
+
+```bash
+starwarden -id YOUR_COLLECTION_ID
+```
+
+To upgrade:
+
+```bash
+uv tool upgrade starwarden
+# or
+mise upgrade pypi:starwarden
+```
+
+### From Source
 
 1. Clone the repository
 2. Install requirements:
@@ -44,7 +85,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
     OPT_TAG_USERNAME=false
     ```
 
-## Usage
+#### Usage
 
 Run:
 
@@ -64,7 +105,7 @@ uv run starwarden.py -id YOUR_COLLECTION_ID
 | :------------------ | :----------: | :------------------------------------------------------------------------------------------------------------- |
 | GITHUB_TOKEN        |              | GitHub API token                                                                                               |
 | GITHUB_USERNAME     |              | GitHub username                                                                                                |
-| LINKWARDEN_URL      |              | Linkwarden URL https://your-linkwarden-instance.com                                                            |
+| LINKWARDEN_URL      |              | Linkwarden URL <https://your-linkwarden-instance.com>                                                            |
 | LINKWARDEN_TOKEN    |              | Linkwarden API token                                                                                           |
 | COLLECTION_ID       |              | Linkwarden Collection ID to update (Number) /collections/499                                                   |
 | CRON_SCHEDULE       | 0 6 \* \* \* | Cron Schedule (default is daily at 6am)                                                                        |

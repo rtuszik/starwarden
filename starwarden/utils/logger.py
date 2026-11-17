@@ -3,10 +3,10 @@ import os
 from logging.handlers import RotatingFileHandler
 from typing import Optional, Union
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from rich.logging import RichHandler
 
-load_dotenv()
+load_dotenv(find_dotenv(usecwd=True))
 LogLevel = Union[int, str]
 
 LOGGER_NAME = os.getenv("LOGGER_NAME", "app")
