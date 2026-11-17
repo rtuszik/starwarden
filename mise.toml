@@ -1,0 +1,30 @@
+[tools]
+uv = "latest"
+
+[tasks.lint]
+description = "Lint with ruff"
+run = "uv run ruff check ."
+
+[tasks.format]
+description = "Format with ruff"
+run = "uv run ruff format ."
+
+[tasks."format:check"]
+description = "Check formatting with ruff"
+run = "uv run ruff format --check ."
+
+[tasks.typecheck]
+description = "Type check with ty"
+run = "uv run ty check"
+
+[tasks.vulture]
+description = "Find dead code with vulture"
+run = "uv run vulture ."
+
+[tasks.test]
+description = "Run tests with pytest"
+run = "uv run pytest"
+
+[tasks.check]
+description = "Run all CI checks"
+depends = ["lint", "format:check", "typecheck", "vulture", "test"]
