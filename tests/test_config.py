@@ -43,7 +43,7 @@ class TestLoadEnv:
     def test_missing_required_env_vars_exits(self, monkeypatch):
         """Test that missing required env vars causes sys.exit."""
         # Prevent load_dotenv from loading the real .env file
-        monkeypatch.setattr("starwarden.config.load_dotenv", lambda: None)
+        monkeypatch.setattr("starwarden.config.load_dotenv", lambda *_args, **_kwargs: None)
         monkeypatch.delenv("GITHUB_USERNAME", raising=False)
         monkeypatch.delenv("LINKWARDEN_URL", raising=False)
         monkeypatch.delenv("LINKWARDEN_TOKEN", raising=False)
@@ -52,3 +52,19 @@ class TestLoadEnv:
             load_env()
 
         assert exc_info.value.code == 1
+
+    def test_loads_dotenv_from_working_directory(self, monkeypatch, tmp_path):
+        """Test that a .env file in the working directory is loaded."""
+        for name in ("GITHUB_USERNAME", "LINKWARDEN_URL", "LINKWARDEN_TOKEN"):
+            # setenv first so teardown restores the original state
+            monkeypatch.setenv(name, "")
+            monkeypatch.delenv(name)
+        (tmp_path / ".env").write_text(
+            "GITHUB_USERNAME=dotenvuser\nLINKWARDEN_URL=https://lw.example.com\nLINKWARDEN_TOKEN=dotenv-token\n"
+        )
+        monkeypatch.chdir(tmp_path)
+
+        config = load_env()
+
+        assert config["github_username"] == "dotenvuser"
+        assert config["linkwarden_url"] == "https://lw.example.com"
